@@ -7,6 +7,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.Random;
+import java.util.Arrays;
 
 public class NotebookPaperGenerator {
     public static void main(String[] args) throws IOException {
@@ -84,6 +85,15 @@ public class NotebookPaperGenerator {
         g2d.setColor(new Color(180, 55, 50, 220));
         g2d.setStroke(new BasicStroke(1.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g2d.drawLine(marginLeftPx, 0, marginLeftPx, heightPx);
+
+        // --- Typed text on ruled lines ---
+        String[] typedLines = args.length > 0 ? Arrays.copyOf(args, args.length) : new String[0];
+        g2d.setFont(new Font("Serif", Font.PLAIN, Math.round((4.0f / MM_PER_INCH) * DPI)));
+        g2d.setColor(new Color(40, 40, 60, 210));
+        for (int i = 0; i < typedLines.length; i++) {
+            int y = topMarginPx + i * lineSpacingPx - Math.round((1.0f / MM_PER_INCH) * DPI);
+            g2d.drawString(typedLines[i], marginLeftPx + Math.round((4.0f / MM_PER_INCH) * DPI), y);
+        }
 
         // Binding holes with darker rim
         int holeY1 = Math.round((30.0f / MM_PER_INCH) * DPI);

@@ -149,6 +149,26 @@ public final class NotebookPaperGenerator {
         return bitmap;
     }
 
+    public static android.graphics.Bitmap generate(int widthPx, int heightPx, int buckleCount, String[] lines) {
+        android.graphics.Bitmap bitmap = generate(widthPx, heightPx, buckleCount);
+        if (lines == null || lines.length == 0) return bitmap;
+        Canvas canvas = new Canvas(bitmap);
+        float sx = widthPx / B5_WIDTH_MM;
+        float sy = heightPx / B5_HEIGHT_MM;
+        int topMarginPx = Math.round(TOP_MARGIN_MM * sy);
+        int lineSpacingPx = Math.round(LINE_SPACING_MM * sy);
+        int marginLeftPx = Math.round(LEFT_MARGIN_MM * sx);
+        Paint textPaint = new Paint();
+        textPaint.setAntiAlias(true);
+        textPaint.setColor(Color.argb(220, 40, 40, 60));
+        textPaint.setTextSize(Math.max(12f, 4f * sy));
+        for (int i = 0; i < lines.length; i++) {
+            float y = topMarginPx + i * lineSpacingPx - (textPaint.descent());
+            canvas.drawText(lines[i], marginLeftPx + (4f * sx), y, textPaint);
+        }
+        return bitmap;
+    }
+
     private static void addBuckle(Canvas canvas, Paint paint, int cx, int cy, int radius) {
         paint.setColor(Color.argb(255, 150, 150, 150));
         canvas.drawCircle(cx, cy, radius, paint);

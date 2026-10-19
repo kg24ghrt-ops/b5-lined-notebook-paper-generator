@@ -2,6 +2,7 @@ package com.notebookpaper.android.app;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.widget.EditText;
 import android.widget.Button;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
@@ -10,6 +11,7 @@ import com.notebookpaper.android.NotebookPaperGenerator;
 public class MainActivity extends AppCompatActivity {
 
     private ZoomableImageView mPaperImage;
+    private EditText mLineInput;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -17,6 +19,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         mPaperImage = findViewById(R.id.paperImage);
+        mLineInput = findViewById(R.id.lineInput);
 
         // Generate the paper once the view has been laid out, so its
         // dimensions are known and the bitmap can be sized to the view.
@@ -41,11 +44,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void generatePaper() {
-        // Size the bitmap to the actual view dimensions (accounts for padding
-        // and the button row sharing vertical space).
         int width = Math.max(1, mPaperImage.getWidth());
         int height = Math.max(1, mPaperImage.getHeight());
-        mPaperImage.setPaperImage(NotebookPaperGenerator.generate(width, height));
+        String text = mLineInput.getText().toString();
+        String[] lines = text.split("\\n", -1);
+        mPaperImage.setPaperImage(NotebookPaperGenerator.generate(width, height, NotebookPaperGenerator.DEFAULT_BUCKLE_COUNT, lines));
     }
 
     private void toggleZoom() {
