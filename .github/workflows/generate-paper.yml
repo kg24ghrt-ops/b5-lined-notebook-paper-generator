@@ -54,12 +54,44 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
 
-      - name: Build Android app
+      - name: Decode signing keystore from secret (if present)
+        if: ${{ secrets.ANDROID_SIGNING_KEYSTORE != '' }}
+        run: |
+          echo "${{ secrets.ANDROID_SIGNING_KEYSTORE }}" | base64 -d > android/app/keystore.jks
+          echo "ANDROID_SIGNING_KEYSTORE=$PWD/android/app/keystore.jks" >> $GITHUB_ENV
+          echo "ANDROID_SIGNING_KEYSTORE_PASSWORD=${{ secrets.ANDROID_SIGNING_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "ANDROID_SIGNING_KEY_ALIAS=${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "ANDROID_SIGNING_KEY_PASSWORD=${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: Generate signing keystore (first run only)
+        if: ${{ secrets.ANDROID_SIGNING_KEYSTORE == '' }}
+        run: |
+          mkdir -p android/app
+          keytool -genkey -v \
+            -keystore android/app/keystore.jks \
+            -storepass android -alias android -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android,OU=Dev,O=Dev,C=US" \
+            -sigalg SHA256withRSA
+          echo "ANDROID_SIGNING_KEYSTORE=$PWD/android/app/keystore.jks" >> $GITHUB_ENV
+          echo "ANDROID_SIGNING_KEYSTORE_PASSWORD=android" >> $GITHUB_ENV
+          echo "ANDROID_SIGNING_KEY_ALIAS=android" >> $GITHUB_ENV
+          echo "ANDROID_SIGNING_KEY_PASSWORD=android" >> $GITHUB_ENV
+
+      - name: Build signed APK
         run: cd android && ./gradlew :app:assembleDebug --no-daemon
 
-      - name: Upload APK as artifact
+      - name: Upload signed APK as artifact
         uses: actions/upload-artifact@v4
         with:
           name: notebook-paper-app-${{ github.run_number }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload keystore as artifact (first run only)
+        if: ${{ secrets.ANDROID_SIGNING_KEYSTORE == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-signing-keystore
+          path: android/app/keystore.jks
           if-no-files-found: error

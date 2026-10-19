@@ -14,10 +14,59 @@ android {
         versionName '1.0.0'
     }
 
+    // Signing configuration. The keystore is provided via environment variables
+    // (see CI workflow). If they are missing, a temporary keystore is generated
+    // so the build still succeeds (for local development only).
+    def signingProps = [
+            storeFile: System.getenv('ANDROID_SIGNING_KEYSTORE'),
+            storePassword: System.getenv('ANDROID_SIGNING_KEYSTORE_PASSWORD'),
+            keyAlias: System.getenv('ANDROID_SIGNING_KEY_ALIAS'),
+            keyPassword: System.getenv('ANDROID_SIGNING_KEY_PASSWORD')
+    ]
+
+    signingConfigs {
+        release {
+            if (signingProps.storeFile && signingProps.storePassword &&
+                    signingProps.keyAlias && signingProps.keyPassword) {
+                storeFile file(signingProps.storeFile)
+                storePassword signingProps.storePassword
+                keyAlias signingProps.keyAlias
+                keyPassword signingProps.keyPassword
+            } else {
+                // Fallback: generate a throwaway keystore for local dev builds.
+                def tempStore = file("$buildDir/keystore/temp.jks")
+                if (!tempStore.exists()) {
+                    def cmd = [
+                            'keytool', '-genkey', '-v',
+                            '-keystore', tempStore.getAbsolutePath(),
+                            '-storepass', 'android',
+                            '-alias', 'android',
+                            '-keypass', 'android',
+                            '-keyalg', 'RSA',
+                            '-keysize', '2048',
+                            '-validity', '10000',
+                            '-dname', 'CN=Android,OU=Dev,O=Dev,C=US',
+                            '-sigalg', 'SHA256withRSA'
+                    ]
+                    cmd.execute().waitFor()
+                }
+                storeFile tempStore
+                storePassword 'android'
+                keyAlias 'android'
+                keyPassword 'android'
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled true
+            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            // Signed with the same key so updates don't require uninstall.
+            signingConfig signingConfigs.release
         }
     }
 
