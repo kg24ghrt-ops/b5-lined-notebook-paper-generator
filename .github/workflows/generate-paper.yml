@@ -35,6 +35,8 @@ jobs:
 
   android:
     runs-on: ubuntu-latest
+    env:
+      HAS_SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEYSTORE != '' }}
 
     steps:
       - name: Checkout code
@@ -54,8 +56,8 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
 
-      - name: Decode signing keystore from secret (if present)
-        if: ${{ secrets.ANDROID_SIGNING_KEYSTORE != '' }}
+      - name: Decode signing keystore from secret
+        if: env.HAS_SIGNING_KEY == 'true'
         run: |
           echo "${{ secrets.ANDROID_SIGNING_KEYSTORE }}" | base64 -d > android/app/keystore.jks
           echo "ANDROID_SIGNING_KEYSTORE=$PWD/android/app/keystore.jks" >> $GITHUB_ENV
@@ -64,7 +66,7 @@ jobs:
           echo "ANDROID_SIGNING_KEY_PASSWORD=${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}" >> $GITHUB_ENV
 
       - name: Generate signing keystore (first run only)
-        if: ${{ secrets.ANDROID_SIGNING_KEYSTORE == '' }}
+        if: env.HAS_SIGNING_KEY == 'false'
         run: |
           mkdir -p android/app
           keytool -genkey -v \
@@ -89,7 +91,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload keystore as artifact (first run only)
-        if: ${{ secrets.ANDROID_SIGNING_KEYSTORE == '' }}
+        if: env.HAS_SIGNING_KEY == 'false'
         uses: actions/upload-artifact@v4
         with:
           name: android-signing-keystore
