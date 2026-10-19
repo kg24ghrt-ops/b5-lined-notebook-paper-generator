@@ -10,7 +10,10 @@ import java.util.Random;
 
 /**
  * Generates a realistic B5 lined notebook paper bitmap using Android Canvas.
- * Drop-in replacement for com.notebookpaper.NotebookPaperGenerator.
+ * Fully Android-compatible (no java.awt dependency).
+ * <p>
+ * Default generation produces paper with two ring-binder holes ("buckles").
+ * Use {@link #generate(int, int, int)} to request a different number of holes.
  */
 public final class NotebookPaperGenerator {
 
@@ -18,17 +21,32 @@ public final class NotebookPaperGenerator {
     private static final float DPI = 300.0f;
     private static final float MM_PER_INCH = 25.4f;
 
+    // Default number of ring-binder holes ("buckles")
+    public static final int DEFAULT_BUCKLE_COUNT = 2;
+
     private NotebookPaperGenerator() {
     }
 
     /**
-     * Generates the notebook paper bitmap.
+     * Generates the notebook paper bitmap with the default number of buckles.
      *
      * @param widthPx  desired width in pixels
      * @param heightPx desired height in pixels
      * @return ARGB_8888 bitmap of the generated paper
      */
     public static android.graphics.Bitmap generate(int widthPx, int heightPx) {
+        return generate(widthPx, heightPx, DEFAULT_BUCKLE_COUNT);
+    }
+
+    /**
+     * Generates the notebook paper bitmap.
+     *
+     * @param widthPx     desired width in pixels
+     * @param heightPx    desired height in pixels
+     * @param buckleCount number of ring-binder holes along the left margin (>= 0)
+     * @return ARGB_8888 bitmap of the generated paper
+     */
+    public static android.graphics.Bitmap generate(int widthPx, int heightPx, int buckleCount) {
         android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(
                 widthPx, heightPx, android.graphics.Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
@@ -93,19 +111,31 @@ public final class NotebookPaperGenerator {
         paint.setStrokeWidth(1.0f);
         canvas.drawLine(marginLeftPx, 0, marginLeftPx, heightPx, paint);
 
-        // Binding holes
-        int holeY1 = Math.round((30.0f / MM_PER_INCH) * DPI);
-        int holeY2 = Math.round((220.0f / MM_PER_INCH) * DPI);
+        // Ring-binder holes ("buckles") along the left margin.
+        // Distribute them evenly between the top and bottom margins.
         int holeX = Math.round((8.0f / MM_PER_INCH) * DPI);
         int holeRadius = Math.round((3.0f / MM_PER_INCH) * DPI);
-        paint.setColor(Color.argb(255, 150, 150, 150));
-        canvas.drawCircle(holeX, holeY1, holeRadius, paint);
-        canvas.drawCircle(holeX, holeY2, holeRadius, paint);
-        paint.setColor(Color.argb(255, 100, 100, 100));
-        paint.setStrokeWidth(1.5f);
-        canvas.drawCircle(holeX, holeY1, holeRadius, paint);
-        canvas.drawCircle(holeX, holeY2, holeRadius, paint);
+        int firstHoleY = Math.round((30.0f / MM_PER_INCH) * DPI);
+        int lastHoleY = Math.round((220.0f / MM_PER_INCH) * DPI);
+        if (buckleCount <= 1) {
+            addBuckle(canvas, paint, holeX, firstHoleY, holeRadius);
+        } else {
+            float span = lastHoleY - firstHoleY;
+            for (int i = 0; i < buckleCount; i++) {
+                float fraction = (buckleCount == 1) ? 0f : (i / (float) (buckleCount - 1));
+                int holeY = Math.round(firstHoleY + span * fraction);
+                addBuckle(canvas, paint, holeX, holeY, holeRadius);
+            }
+        }
 
         return bitmap;
+    }
+
+    private static void addBuckle(Canvas canvas, Paint paint, int cx, int cy, int radius) {
+        paint.setColor(Color.argb(255, 150, 150, 150));
+        canvas.drawCircle(cx, cy, radius, paint);
+        paint.setColor(Color.argb(255, 100, 100, 100));
+        paint.setStrokeWidth(1.5f);
+        canvas.drawCircle(cx, cy, radius, paint);
     }
 }

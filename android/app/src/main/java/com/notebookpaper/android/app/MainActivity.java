@@ -1,8 +1,9 @@
 package com.notebookpaper.android.app;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
-import android.widget.ImageView;
+import android.widget ImageView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.notebookpaper.android.NotebookPaperGenerator;
@@ -20,13 +21,23 @@ public class MainActivity extends AppCompatActivity {
 
         android.graphics.Bitmap paper = NotebookPaperGenerator.generate(width, height);
         ImageView paperImage = findViewById(R.id.paperImage);
-        paperImage.setImageBitmap(paper);
+        paperImageBitmap(paper);
 
         Button regenerate = findViewById(R.id.regenerateButton);
         regenerate.setOnClickListener(v -> {
             android.graphics.Bitmap fresh = NotebookPaperGenerator.generate(width, height);
-            paperImage.setImageBitmap(fresh);
+            paperImageBitmap(fresh);
             Toast.makeText(this, "Paper regenerated", Toast.LENGTH_SHORT).show();
         });
+
+        Button termsButton = findViewById(R.id.termsButton);
+        termsButton.setOnClickListener(v -> {
+            startActivity(new Intent(this, TermsOfUseActivity.class));
+        });
+    }
+
+    private void paperImageBitmap(android.graphics.Bitmap bitmap) {
+        ImageView paperImage = findViewById(R.id.paperImage);
+        paperImage.setImageBitmap(bitmap);
     }
 }

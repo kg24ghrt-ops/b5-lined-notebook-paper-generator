@@ -21,4 +21,11 @@
         android:layout_gravity="center"
         android:text="Regenerate paper" />
 
+    <Button
+        android:id="@+id/termsButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="Terms of Use" />
+
 </LinearLayout>

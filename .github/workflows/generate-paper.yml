@@ -46,7 +46,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Android SDK
+      - name: Set up Android SDK (fully automatic)
         uses: android-actions/setup-android@v3
         with:
           api-level: 34

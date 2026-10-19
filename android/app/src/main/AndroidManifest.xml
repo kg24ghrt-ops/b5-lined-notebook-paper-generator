@@ -4,6 +4,10 @@
         android:allowBackup="true"
         android:label="Notebook Paper">
         <activity
+            android:name=".TermsOfUseActivity"
+            android:exported="false"
+            android:theme="@style/Theme.NotebookPaper" />
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.NotebookPaper">
