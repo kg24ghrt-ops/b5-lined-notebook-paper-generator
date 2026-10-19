@@ -32,16 +32,3 @@ jobs:
             output/notebook-paper-b5-lined.png
             target/notebook-paper-generator-1.0.0.jar
           if-no-files-found: error
-
-      - name: Create release with PNG and jar
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: paper-v${{ github.run_number }}
-          name: Notebook Paper B5 Lined (Build ${ github.run_number }})
-          files: |
-            output/notebook-paper-b5-lined.png
-            target/notebook-paper-generator-1.0.0.jar
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
