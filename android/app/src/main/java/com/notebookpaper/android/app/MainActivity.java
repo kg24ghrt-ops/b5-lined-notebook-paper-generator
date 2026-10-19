@@ -3,7 +3,7 @@ package com.notebookpaper.android.app;
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
-import android.widget ImageView;
+import android.widget.ImageView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.notebookpaper.android.NotebookPaperGenerator;
@@ -35,6 +35,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void setPaperImage(android.graphics.Bitmap bitmap) {
         ImageView paperImage = findViewById(R.id.paperImage);
-        paperImageBitmap(bitmap);
+        paperImage.setImageBitmap(bitmap);
     }
 }
