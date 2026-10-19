@@ -17,7 +17,7 @@ public class ZoomableImageView extends ImageView {
     private static final float MAX_SCALE = 4.0f;
 
     private final Matrix mMatrix = new Matrix();
-    private final Matrix mTmp = new Matrix();
+    private final float[] mTmp = new float[9];
 
     private android.graphics.Bitmap mBitmap;
     private float mBaseScale = 1.0f;
@@ -86,10 +86,9 @@ public class ZoomableImageView extends ImageView {
 
     private void constrainMatrix() {
         mMatrix.getValues(mTmp);
-        float[] v = mTmp;
-        float transX = v[Matrix.MTRANS_X];
-        float transY = v[Matrix.MTRANS_Y];
-        float scale = v[Matrix.MSCALE];
+        float transX = mTmp[Matrix.MTRANS_X];
+        float transY = mTmp[Matrix.MTRANS_Y];
+        float scale = mTmp[Matrix.MSCALE];
 
         float dw = mBitmap.getWidth() * scale;
         float dh = mBitmap.getHeight() * scale;
@@ -101,9 +100,9 @@ public class ZoomableImageView extends ImageView {
         float minY = Math.min(h - dh, 0);
         float maxY = Math.max(h - dh, 0);
 
-        v[Matrix.MTRANS_X] = Math.min(Math.max(transX, minX), maxX);
-        v[Matrix.MTRANS_Y] = Math.min(Math.max(transY, minY), maxY);
-        mMatrix.setValues(v);
+        mTmp[Matrix.MTRANS_X] = Math.min(Math.max(transX, minX), maxX);
+        mTmp[Matrix.MTRANS_Y] = Math.min(Math.max(transY, minY), maxY);
+        mMatrix.setValues(mTmp);
     }
 
     public void setPaperImage(android.graphics.Bitmap bitmap) {
