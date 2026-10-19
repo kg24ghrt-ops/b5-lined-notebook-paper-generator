@@ -18,18 +18,16 @@ public class MainActivity extends AppCompatActivity {
 
         mPaperImage = findViewById(R.id.paperImage);
 
-        // Render at screen width, proportional height for a preview.
-        int width = getResources().getDisplayMetrics().widthPixels;
-        int height = Math.round(width * (250.0f / 176.0f));
-
-        mPaperImage.setPaperImage(NotebookPaperGenerator.generate(width, height));
+        // Generate the paper once the view has been laid out, so its
+        // dimensions are known and the bitmap can be sized to the view.
+        mPaperImage.post(this::generatePaper);
 
         // Double-tap toggles between fit-to-screen and full zoom.
         mPaperImage.setOnDoubleTapListener(this::toggleZoom);
 
         Button regenerate = findViewById(R.id.regenerateButton);
         regenerate.setOnClickListener(v -> {
-            mPaperImage.setPaperImage(NotebookPaperGenerator.generate(width, height));
+            generatePaper();
             Toast.makeText(this, "Paper regenerated", Toast.LENGTH_SHORT).show();
         });
 
@@ -40,6 +38,14 @@ public class MainActivity extends AppCompatActivity {
         termsButton.setOnClickListener(v -> {
             startActivity(new Intent(this, TermsOfUseActivity.class));
         });
+    }
+
+    private void generatePaper() {
+        // Size the bitmap to the actual view dimensions (accounts for padding
+        // and the button row sharing vertical space).
+        int width = Math.max(1, mPaperImage.getWidth());
+        int height = Math.max(1, mPaperImage.getHeight());
+        mPaperImage.setPaperImage(NotebookPaperGenerator.generate(width, height));
     }
 
     private void toggleZoom() {

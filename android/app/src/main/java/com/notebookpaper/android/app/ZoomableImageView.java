@@ -53,6 +53,7 @@ public class ZoomableImageView extends ImageView {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         if (mBitmap != null) {
+            mMatrix.reset();
             mBaseScale = Math.min(w / (float) mBitmap.getWidth(), h / (float) mBitmap.getHeight());
             mScale = mBaseScale;
             mMatrix.postScale(mScale, mScale);
@@ -114,13 +115,18 @@ public class ZoomableImageView extends ImageView {
         mBitmap = bitmap;
         setImageBitmap(bitmap);
         mMatrix.reset();
-        mBaseScale = Math.min(getWidth() / (float) bitmap.getWidth(),
-                getHeight() / (float) bitmap.getHeight());
+        int w = getWidth();
+        int h = getHeight();
+        if (w <= 0 || h <= 0) {
+            // Not laid out yet; recompute once the view has a size.
+            return;
+        }
+        mBaseScale = Math.min(w / (float) bitmap.getWidth(), h / (float) bitmap.getHeight());
         mScale = mBaseScale;
         mMatrix.postScale(mScale, mScale);
         mMatrix.postTranslate(
-                (getWidth() - bitmap.getWidth() * mScale) / 2f,
-                (getHeight() - bitmap.getHeight() * mScale) / 2f);
+                (w - bitmap.getWidth() * mScale) / 2f,
+                (h - bitmap.getHeight() * mScale) / 2f);
         setImageMatrix(mMatrix);
     }
 
