@@ -1,0 +1,32 @@
+package com.notebookpaper.android.app;
+
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import com.notebookpaper.android.NotebookPaperGenerator;
+
+public class MainActivity extends AppCompatActivity {
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        // Render at screen width, proportional height for a preview.
+        int width = getResources().getDisplayMetrics().widthPixels;
+        int height = Math.round(width * (250.0f / 176.0f));
+
+        android.graphics.Bitmap paper = NotebookPaperGenerator.generate(width, height);
+        ImageView paperImage = findViewById(R.id.paperImage);
+        paperImage.setImageBitmap(paper);
+
+        Button regenerate = findViewById(R.id.regenerateButton);
+        regenerate.setOnClickListener(v -> {
+            android.graphics.Bitmap fresh = NotebookPaperGenerator.generate(width, height);
+            paperImage.setImageBitmap(fresh);
+            Toast.makeText(this, "Paper regenerated", Toast.LENGTH_SHORT).show();
+        });
+    }
+}

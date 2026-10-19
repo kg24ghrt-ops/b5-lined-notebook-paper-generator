@@ -1,6 +1,11 @@
-target/
-*.class
-*.log
-.DS_Store
-Thumbs.db
-output/*.png
+# Android Gradle
+android/.gradle/
+android/build/
+android/**/build/
+android/local.properties
+android/.gradle/
+android/gradle/wrapper/gradle-wrapper.properties
+!android/gradle/wrapper/gradle-wrapper.properties
+android/**/generated/
+android/**/*.apk
+android/**/*.aab
