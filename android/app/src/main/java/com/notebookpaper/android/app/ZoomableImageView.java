@@ -88,7 +88,7 @@ public class ZoomableImageView extends ImageView {
         mMatrix.getValues(mTmp);
         float transX = mTmp[Matrix.MTRANS_X];
         float transY = mTmp[Matrix.MTRANS_Y];
-        float scale = mTmp[Matrix.MSCALE];
+        float scale = mTmp[Matrix.MSCALE_X];
 
         float dw = mBitmap.getWidth() * scale;
         float dh = mBitmap.getHeight() * scale;
