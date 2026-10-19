@@ -28,6 +28,9 @@ public class ZoomableImageView extends ImageView {
     private ScaleGestureDetector mScaleDetector;
     private GestureDetector mGestureDetector;
     private OnDoubleTapListener mDoubleTapListener;
+    private OnLineTapListener mLineTapListener;
+
+    private final float[] mInvertMatrix = new float[9];
 
     public ZoomableImageView(Context context) {
         super(context);
@@ -47,6 +50,32 @@ public class ZoomableImageView extends ImageView {
 
     public void setOnDoubleTapListener(OnDoubleTapListener listener) {
         mDoubleTapListener = listener;
+    }
+
+    /**
+     * Set a listener invoked when the user taps a point on the paper. The
+     * coordinates are reported in bitmap space (inverse of the current matrix),
+     * so the caller can map the tap to a ruled line.
+     */
+    public void setOnLineTapListener(OnLineTapListener listener) {
+        mLineTapListener = listener;
+    }
+
+    /**
+     * Maps a point from screen coordinates to bitmap coordinates using the
+     * current display matrix.
+     */
+    public void mapScreenToBitmap(float screenX, float screenY, float[] out) {
+        mMatrix.invert(mInvertMatrix);
+        mInvertMatrix.mapPoints(out, new float[]{screenX, screenY});
+    }
+
+    /**
+     * Maps a point from bitmap coordinates to screen coordinates using the
+     * current display matrix.
+     */
+    public void mapBitmapToScreen(float bitmapX, float bitmapY, float[] out) {
+        mMatrix.mapPoints(out, new float[]{bitmapX, bitmapY});
     }
 
     @Override
@@ -172,6 +201,11 @@ public class ZoomableImageView extends ImageView {
     private class GestureListener extends GestureDetector.SimpleOnGestureListener {
         @Override
         public boolean onSingleTapUp(MotionEvent e) {
+            if (mLineTapListener != null && mBitmap != null) {
+                float[] pt = new float[2];
+                mapScreenToBitmap(e.getX(), e.getY(), pt);
+                mLineTapListener.onLineTap(pt[0], pt[1]);
+            }
             return true;
         }
 
@@ -186,5 +220,12 @@ public class ZoomableImageView extends ImageView {
 
     public interface OnDoubleTapListener {
         void onDoubleTap();
+    }
+
+    /**
+     * Callback for a tap on the paper. Coordinates are in bitmap space.
+     */
+    public interface OnLineTapListener {
+        void onLineTap(float bitmapX, float bitmapY);
     }
 }

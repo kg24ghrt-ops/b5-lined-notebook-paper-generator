@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
 import android.graphics.Shader;
+import android.util.SparseArray;
 
 import java.util.Random;
 
@@ -33,6 +34,27 @@ public final class NotebookPaperGenerator {
 
     // Default number of ring-binder holes ("buckles")
     public static final int DEFAULT_BUCKLE_COUNT = 2;
+
+    /**
+     * Top margin in pixels for a bitmap of the given height.
+     */
+    public static int topMarginPx(int heightPx) {
+        return Math.round(TOP_MARGIN_MM * (heightPx / B5_HEIGHT_MM));
+    }
+
+    /**
+     * Ruled line spacing in pixels for a bitmap of the given height.
+     */
+    public static int lineSpacingPx(int heightPx) {
+        return Math.round(LINE_SPACING_MM * (heightPx / B5_HEIGHT_MM));
+    }
+
+    /**
+     * Left margin line position in pixels for a bitmap of the given width.
+     */
+    public static int marginLeftPx(int widthPx) {
+        return Math.round(LEFT_MARGIN_MM * (widthPx / B5_WIDTH_MM));
+    }
 
     private NotebookPaperGenerator() {
     }
@@ -149,24 +171,40 @@ public final class NotebookPaperGenerator {
         return bitmap;
     }
 
-    public static android.graphics.Bitmap generate(int widthPx, int heightPx, int buckleCount, String[] lines) {
+    public static android.graphics.Bitmap generate(int widthPx, int heightPx, int buckleCount, SparseArray<String> lines) {
         android.graphics.Bitmap bitmap = generate(widthPx, heightPx, buckleCount);
-        if (lines == null || lines.length == 0) return bitmap;
+        if (lines == null || lines.size() == 0) return bitmap;
         Canvas canvas = new Canvas(bitmap);
         float sx = widthPx / B5_WIDTH_MM;
         float sy = heightPx / B5_HEIGHT_MM;
         int topMarginPx = Math.round(TOP_MARGIN_MM * sy);
         int lineSpacingPx = Math.round(LINE_SPACING_MM * sy);
-        int marginLeftPx = Math.round(LEFT_MARGIN_MM * sx);
         Paint textPaint = new Paint();
         textPaint.setAntiAlias(true);
         textPaint.setColor(Color.argb(220, 40, 40, 60));
         textPaint.setTextSize(Math.max(12f, 4f * sy));
-        for (int i = 0; i < lines.length; i++) {
-            float y = topMarginPx + i * lineSpacingPx - (textPaint.descent());
-            canvas.drawText(lines[i], marginLeftPx + (4f * sx), y, textPaint);
+        float textHeight = textPaint.descent() - textPaint.ascent();
+        for (int i = 0; i < lines.size(); i++) {
+            int lineIndex = lines.keyAt(i);
+            String text = lines.valueAt(i);
+            if (text == null || text.isEmpty()) continue;
+            float y = topMarginPx + lineIndex * lineSpacingPx - textPaint.descent();
+            // Start typing at the left edge so text can fall inside or outside the red margin line.
+            canvas.drawText(text, 4f * sx, y, textPaint);
         }
         return bitmap;
+    }
+
+    /**
+     * Legacy convenience: renders text starting at ruled line 0, one line per array entry.
+     */
+    public static android.graphics.Bitmap generate(int widthPx, int heightPx, int buckleCount, String[] lines) {
+        if (lines == null || lines.length == 0) return generate(widthPx, heightPx, buckleCount);
+        SparseArray<String> sparse = new SparseArray<>(lines.length);
+        for (int i = 0; i < lines.length; i++) {
+            sparse.put(i, lines[i]);
+        }
+        return generate(widthPx, heightPx, buckleCount, sparse);
     }
 
     private static void addBuckle(Canvas canvas, Paint paint, int cx, int cy, int radius) {

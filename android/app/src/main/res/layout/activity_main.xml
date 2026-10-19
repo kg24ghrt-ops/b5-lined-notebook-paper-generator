@@ -6,21 +6,34 @@
     android:padding="16dp"
     android:background="#111111">
 
-    <com.notebookpaper.android.app.ZoomableImageView
-        android:id="@+id/paperImage"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:scaleType="matrix"
-        android:contentDescription="Generated notebook paper" />
+        android:layout_weight="1">
 
-    <EditText
-        android:id="@+id/lineInput"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Type on the line"
-        android:textColor="#FFFFFF"
-        android:textColorHint="#888888" />
+        <com.notebookpaper.android.app.ZoomableImageView
+            android:id="@+id/paperImage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="matrix"
+            android:contentDescription="Generated notebook paper" />
+
+        <EditText
+            android:id="@+id/lineEdit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:background="@android:color/transparent"
+            android:textColor="#20203c"
+            android:textColorHint="#777777"
+            android:hint="Type on the line"
+            android:gravity="top|start"
+            android:padding="6dp"
+            android:singleLine="true"
+            android:imeOptions="actionDone|flagNoExtractUi"
+            android:inputType="text" />
+
+    </FrameLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
