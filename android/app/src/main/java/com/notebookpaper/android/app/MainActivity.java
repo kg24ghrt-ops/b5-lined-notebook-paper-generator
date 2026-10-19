@@ -19,14 +19,11 @@ public class MainActivity extends AppCompatActivity {
         int width = getResources().getDisplayMetrics().widthPixels;
         int height = Math.round(width * (250.0f / 176.0f));
 
-        android.graphics.Bitmap paper = NotebookPaperGenerator.generate(width, height);
-        ImageView paperImage = findViewById(R.id.paperImage);
-        paperImageBitmap(paper);
+        setPaperImage(NotebookPaperGenerator.generate(width, height));
 
         Button regenerate = findViewById(R.id.regenerateButton);
         regenerate.setOnClickListener(v -> {
-            android.graphics.Bitmap fresh = NotebookPaperGenerator.generate(width, height);
-            paperImageBitmap(fresh);
+            setPaperImage(NotebookPaperGenerator.generate(width, height));
             Toast.makeText(this, "Paper regenerated", Toast.LENGTH_SHORT).show();
         });
 
@@ -36,8 +33,8 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void paperImageBitmap(android.graphics.Bitmap bitmap) {
+    private void setPaperImage(android.graphics.Bitmap bitmap) {
         ImageView paperImage = findViewById(R.id.paperImage);
-        paperImage.setImageBitmap(bitmap);
+        paperImageBitmap(bitmap);
     }
 }
