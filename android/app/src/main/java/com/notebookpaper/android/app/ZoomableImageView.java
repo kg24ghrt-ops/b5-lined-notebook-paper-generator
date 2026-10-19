@@ -30,7 +30,7 @@ public class ZoomableImageView extends ImageView {
     private OnDoubleTapListener mDoubleTapListener;
     private OnLineTapListener mLineTapListener;
 
-    private final float[] mInvertMatrix = new float[9];
+    private final Matrix mInvertMatrix = new Matrix();
 
     public ZoomableImageView(Context context) {
         super(context);

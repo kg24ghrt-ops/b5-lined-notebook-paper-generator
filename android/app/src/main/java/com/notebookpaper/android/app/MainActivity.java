@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
@@ -92,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
         mPaperImage.mapBitmapToScreen(0f, lineY, screenPt);
         float textSize = mLineEdit.getTextSize();
         mLineEdit.setY(screenPt[1] - textSize);
-        mLineEdit.setText(TextUtils.emptyIfNull(mLineTexts.get(lineIndex)));
+        mLineEdit.setText(TextUtils.isEmpty(mLineTexts.get(lineIndex)) ? "" : mLineTexts.get(lineIndex));
         mLineEdit.setSelection(mLineEdit.getText().length());
         mLineEdit.setVisibility(View.VISIBLE);
         mLineEdit.requestFocus();
