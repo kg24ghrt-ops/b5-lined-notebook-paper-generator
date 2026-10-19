@@ -44,7 +44,7 @@ public class MainActivity extends AppCompatActivity {
         mLineEdit.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, android.view.KeyEvent event) {
-                if (actionId == android.view.EditorInfo.IME_ACTION_DONE) {
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
                     commitEdit();
                     return true;
                 }
