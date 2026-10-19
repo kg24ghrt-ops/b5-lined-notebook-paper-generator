@@ -19,25 +19,29 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      - name: Generate notebook paper
+      - name: Build jar and generate notebook paper
         run: |
           mkdir -p output
-          mvn compile exec:java
+          mvn package exec:java
 
-      - name: Upload generated PNG as artifact
+      - name: Upload PNG and jar as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: notebook-paper-b5-lined
-          path: output/notebook-paper-b5-lined.png
+          name: notebook-paper-build-${{ github.run_number }}
+          path: |
+            output/notebook-paper-b5-lined.png
+            target/notebook-paper-generator-1.0.0.jar
           if-no-files-found: error
 
-      - name: Create release with PNG
+      - name: Create release with PNG and jar
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: paper-v${{ github.run_number }}
-          name: Notebook Paper B5 Lined (Build ${{ github.run_number }})
-          files: output/notebook-paper-b5-lined.png
+          name: Notebook Paper B5 Lined (Build ${ github.run_number }})
+          files: |
+            output/notebook-paper-b5-lined.png
+            target/notebook-paper-generator-1.0.0.jar
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
