@@ -26,22 +26,21 @@ public class NotebookPaperGenerator {
         g2d.setColor(new Color(244, 241, 234));
         g2d.fillRect(0, 0, widthPx, heightPx);
 
-        // Subtle paper grain (deterministic seed for reproducibility)
+        // --- Paper fiber texture: fine random speckle in warm/gray tones ---
         Random rnd = new Random(42);
-        int grainCount = widthPx * heightPx / 40;
-        g2d.setColor(new Color(0, 0, 0));
+        int grainCount = widthPx * heightPx / 30;
         for (int i = 0; i < grainCount; i++) {
             int x = rnd.nextInt(widthPx);
             int y = rnd.nextInt(heightPx);
-            int shade = rnd.nextInt(14); // 0..13 darker speckle
+            int shade = rnd.nextInt(16);
             g2d.setColor(new Color(shade, shade, shade));
             g2d.fillRect(x, y, 1, 1);
         }
 
-        // Soft vignette around edges
+        // --- Soft edge vignette (page curl shadow) ---
         RadialGradientPaint vignette = new RadialGradientPaint(
                 new Point2D.Float(widthPx / 2f, heightPx / 2f),
-                Math.max(widthPx, heightPx) / 1.4f,
+                Math.max(widthPx, heightPx) / 1.3f,
                 new float[]{0f, 1f},
                 new Color[]{new Color(0, 0, 0, 0), new Color(0, 0, 0, 45)}
         );
@@ -49,28 +48,44 @@ public class NotebookPaperGenerator {
         g2d.fillRect(0, 0, widthPx, heightPx);
         g2d.setPaint(null);
 
-        // Top margin area with a thicker header line
+        // --- Helper: draw a line that looks like ink on paper ---
+        // Two passes: a soft, wider, lighter "bleed" pass followed by a
+        // thinner, darker core pass. Slight per-line jitter makes lines feel
+        // hand-drawn / physically present rather than vector-perfect.
+        // lineSpacingPx and topMarginPx are computed before the loop.
         int topMarginPx = Math.round((25.0f / MM_PER_INCH) * DPI);
-        int headerLineY = topMarginPx - Math.round((4.0f / MM_PER_INCH) * DPI);
-        g2d.setColor(new Color(120, 120, 140));
-        g2d.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g2d.drawLine(0, headerLineY, widthPx, headerLineY);
-
-        // Red margin line on the left
-        int marginLeftPx = Math.round((20.0f / MM_PER_INCH) * DPI);
-        g2d.setColor(new Color(200, 60, 60));
-        g2d.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g2d.drawLine(marginLeftPx, 0, marginLeftPx, heightPx);
-
-        // Blue ruled lines with slight transparency and soft edges
         int lineSpacingPx = Math.round((8.0f / MM_PER_INCH) * DPI);
-        g2d.setColor(new Color(150, 160, 220, 170)); // translucent blue
+
+        // Blue ruled lines with ink bleed
+        g2d.setColor(new Color(150, 160, 220, 150)); // translucent blue
+        g2d.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        for (int i = 0; i < (heightPx / lineSpacingPx); i++) {
+            int y = topMarginPx + i * lineSpacingPx + (rnd.nextInt(3) - 1);
+            g2d.drawLine(0, y, widthPx, y);
+        }
+        g2d.setColor(new Color(90, 105, 175, 200)); // darker core
         g2d.setStroke(new BasicStroke(1.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        for (int y = topMarginPx; y < heightPx; y += lineSpacingPx) {
+        for (int i = 0; i < (heightPx / lineSpacingPx); i++) {
+            int y = topMarginPx + i * lineSpacingPx + (rnd.nextInt(3) - 1);
             g2d.drawLine(0, y, widthPx, y);
         }
 
-        // Binding holes on the left side (subtle gray with darker rim)
+        // Header line (gray ink, slightly faded) above the ruled area
+        int headerLineY = topMarginPx - Math.round((4.0f / MM_PER_INCH) * DPI);
+        g2d.setColor(new Color(150, 150, 165, 180));
+        g2d.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2d.drawLine(0, headerLineY, widthPx, headerLineY);
+
+        // Red margin line on the left with ink bleed
+        int marginLeftPx = Math.round((20.0f / MM_PER_INCH) * DPI);
+        g2d.setColor(new Color(210, 90, 85, 170));
+        g2d.setStroke(new BasicStroke(3.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2d.drawLine(marginLeftPx, 0, marginLeftPx, heightPx);
+        g2d.setColor(new Color(180, 55, 50, 220));
+        g2d.setStroke(new BasicStroke(1.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2d.drawLine(marginLeftPx, 0, marginLeftPx, heightPx);
+
+        // Binding holes with darker rim
         int holeY1 = Math.round((30.0f / MM_PER_INCH) * DPI);
         int holeY2 = Math.round((220.0f / MM_PER_INCH) * DPI);
         int holeX = Math.round((8.0f / MM_PER_INCH) * DPI);
@@ -79,8 +94,8 @@ public class NotebookPaperGenerator {
         for (int holeY : new int[]{holeY1, holeY2}) {
             g2d.fillOval(holeX - holeRadius, holeY - holeRadius, holeRadius * 2, holeRadius * 2);
         }
-        g2d.setColor(new Color(110, 110, 110));
-        g2d.setStroke(new BasicStroke(1.0f));
+        g2d.setColor(new Color(100, 100, 100));
+        g2d.setStroke(new BasicStroke(1.5f));
         for (int holeY : new int[]{holeY1, holeY2}) {
             g2d.drawOval(holeX - holeRadius, holeY - holeRadius, holeRadius * 2, holeRadius * 2);
         }
