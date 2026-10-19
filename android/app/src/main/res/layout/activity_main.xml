@@ -6,26 +6,41 @@
     android:padding="16dp"
     android:background="#111111">
 
-    <ImageView
+    <com.notebookpaper.android.app.ZoomableImageView
         android:id="@+id/paperImage"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:scaleType="fitCenter"
+        android:scaleType="matrix"
         android:contentDescription="Generated notebook paper" />
 
-    <Button
-        android:id="@+id/regenerateButton"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="Regenerate paper" />
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginTop="8dp">
 
-    <Button
-        android:id="@+id/termsButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="Terms of Use" />
+        <Button
+            android:id="@+id/regenerateButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Regenerate" />
+
+        <Button
+            android:id="@+id/resetButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="Reset zoom" />
+
+        <Button
+            android:id="@+id/termsButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="Terms of Use" />
+
+    </LinearLayout>
 
 </LinearLayout>
