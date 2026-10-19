@@ -18,8 +18,18 @@ import java.util.Random;
 public final class NotebookPaperGenerator {
 
     // B5 dimensions in mm: 176 x 250
-    private static final float DPI = 300.0f;
-    private static final float MM_PER_INCH = 25.4f;
+    private static final float B5_WIDTH_MM = 176.0f;
+    private static final float B5_HEIGHT_MM = 250.0f;
+
+    // Notebook measurements in mm (relative to the B5 page)
+    private static final float TOP_MARGIN_MM = 25.0f;
+    private static final float HEADER_GAP_MM = 4.0f;
+    private static final float LINE_SPACING_MM = 8.0f;
+    private static final float LEFT_MARGIN_MM = 20.0f;
+    private static final float HOLE_X_MM = 8.0f;
+    private static final float HOLE_RADIUS_MM = 3.0f;
+    private static final float FIRST_HOLE_Y_MM = 30.0f;
+    private static final float LAST_HOLE_Y_MM = 220.0f;
 
     // Default number of ring-binder holes ("buckles")
     public static final int DEFAULT_BUCKLE_COUNT = 2;
@@ -40,6 +50,10 @@ public final class NotebookPaperGenerator {
 
     /**
      * Generates the notebook paper bitmap.
+     * <p>
+     * All notebook measurements are scaled proportionally to the actual bitmap
+     * dimensions (using B5 proportions as the reference), so the layout stays
+     * correct regardless of the bitmap size.
      *
      * @param widthPx     desired width in pixels
      * @param heightPx    desired height in pixels
@@ -50,6 +64,10 @@ public final class NotebookPaperGenerator {
         android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(
                 widthPx, heightPx, android.graphics.Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
+
+        // Scale factors from B5 mm to the actual bitmap pixels.
+        float sx = widthPx / B5_WIDTH_MM;
+        float sy = heightPx / B5_HEIGHT_MM;
 
         Paint paint = new Paint();
         paint.setAntiAlias(true);
@@ -79,8 +97,8 @@ public final class NotebookPaperGenerator {
         canvas.drawRect(0, 0, widthPx, heightPx, paint);
         paint.setShader(null);
 
-        int topMarginPx = Math.round((25.0f / MM_PER_INCH) * DPI);
-        int lineSpacingPx = Math.round((8.0f / MM_PER_INCH) * DPI);
+        int topMarginPx = Math.round(TOP_MARGIN_MM * sy);
+        int lineSpacingPx = Math.round(LINE_SPACING_MM * sy);
 
         // Blue ruled lines with ink bleed
         paint.setColor(Color.argb(150, 150, 160, 220));
@@ -97,13 +115,13 @@ public final class NotebookPaperGenerator {
         }
 
         // Header line
-        int headerLineY = topMarginPx - Math.round((4.0f / MM_PER_INCH) * DPI);
+        int headerLineY = topMarginPx - Math.round(HEADER_GAP_MM * sy);
         paint.setColor(Color.argb(180, 150, 150, 165));
         paint.setStrokeWidth(2.0f);
         canvas.drawLine(0, headerLineY, widthPx, headerLineY, paint);
 
         // Red margin line
-        int marginLeftPx = Math.round((20.0f / MM_PER_INCH) * DPI);
+        int marginLeftPx = Math.round(LEFT_MARGIN_MM * sx);
         paint.setColor(Color.argb(170, 210, 90, 85));
         paint.setStrokeWidth(3.0f);
         canvas.drawLine(marginLeftPx, 0, marginLeftPx, heightPx, paint);
@@ -113,10 +131,10 @@ public final class NotebookPaperGenerator {
 
         // Ring-binder holes ("buckles") along the left margin.
         // Distribute them evenly between the top and bottom margins.
-        int holeX = Math.round((8.0f / MM_PER_INCH) * DPI);
-        int holeRadius = Math.round((3.0f / MM_PER_INCH) * DPI);
-        int firstHoleY = Math.round((30.0f / MM_PER_INCH) * DPI);
-        int lastHoleY = Math.round((220.0f / MM_PER_INCH) * DPI);
+        int holeX = Math.round(HOLE_X_MM * sx);
+        int holeRadius = Math.round(HOLE_RADIUS_MM * sx);
+        int firstHoleY = Math.round(FIRST_HOLE_Y_MM * sy);
+        int lastHoleY = Math.round(LAST_HOLE_Y_MM * sy);
         if (buckleCount <= 1) {
             addBuckle(canvas, paint, holeX, firstHoleY, holeRadius);
         } else {
