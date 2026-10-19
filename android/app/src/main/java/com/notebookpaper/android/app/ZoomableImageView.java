@@ -34,6 +34,11 @@ public class ZoomableImageView extends ImageView {
         init(context);
     }
 
+    public ZoomableImageView(Context context, android.util.AttributeSet attrs) {
+        super(context, attrs);
+        init(context);
+    }
+
     private void init(Context context) {
         mScaleDetector = new ScaleGestureDetector(context, new ScaleListener());
         mGestureDetector = new GestureDetector(context, new GestureListener());
