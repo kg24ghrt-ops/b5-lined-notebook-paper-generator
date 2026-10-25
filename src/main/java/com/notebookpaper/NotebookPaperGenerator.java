@@ -154,11 +154,11 @@ public class NotebookPaperGenerator {
     private static void drawTypedText(Graphics2D g2d, String[] lines, int w, int h,
                                       int topMarginPx, int lineSpacingPx, int marginLeftPx) {
         if (lines == null || lines.length == 0) return;
-        g2d.setFont(new Font("Serif", Font.PLAIN, mmToPx(4.0f, heightPx, B5_HEIGHT_MM)));
+        g2d.setFont(new Font("Serif", Font.PLAIN, mmToPx(4.0f, h, B5_HEIGHT_MM)));
         g2d.setColor(new Color(40, 40, 60, 210));
         for (int i = 0; i < lines.length; i++) {
-            int y = topMarginPx + i * lineSpacingPx - mmToPx(1.0f, heightPx, B5_HEIGHT_MM);
-            g2d.drawString(lines[i], marginLeftPx + mmToPx(4.0f, widthPx, B5_WIDTH_MM), y);
+            int y = topMarginPx + i * lineSpacingPx - mmToPx(1.0f, h, B5_HEIGHT_MM);
+            g2d.drawString(lines[i], marginLeftPx + mmToPx(4.0f, w, B5_WIDTH_MM), y);
         }
     }
 
