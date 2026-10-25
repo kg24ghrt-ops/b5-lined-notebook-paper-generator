@@ -7,7 +7,10 @@ import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.text.BreakIterator;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 
 public class NotebookPaperGenerator {
@@ -232,17 +235,17 @@ public class NotebookPaperGenerator {
                 default -> x = marginLeftPx + mmToPx(4.0f, w, B5_WIDTH_MM);
             }
 
-            drawHandwrittenText(g2d, tl.text(), x, baselineY, rnd);
+            drawHandwrittenText(g2d, tl.text(), x, baselineY, fm, rnd);
         }
     }
 
     private static Font resolveHandwritingFont(int fontSize) {
         String[] candidates = {
-            "Noto Serif Myanmar",   // Best Myanmar + Latin
+            "Noto Serif Myanmar",
             "Noto Sans Myanmar",
-            "Noto Serif",           // Good Latin, decent Myanmar fallback
-            "Serif",                // System serif
-            "Dialog"                // Last resort
+            "Noto Serif",
+            "Serif",
+            "Dialog"
         };
         for (String name : candidates) {
             Font f = new Font(name, Font.PLAIN, fontSize);
@@ -251,22 +254,24 @@ public class NotebookPaperGenerator {
         return new Font("Serif", Font.PLAIN, fontSize);
     }
 
-    private static void drawHandwrittenText(Graphics2D g2d, String text, int x, int baselineY, Random rnd) {
-        char[] chars = text.toCharArray();
+    private static void drawHandwrittenText(Graphics2D g2d, String text, int x, int baselineY,
+                                             FontMetrics fm, Random rnd) {
+        List<String> clusters = graphemeClusters(text);
         int charX = x;
 
-        for (char ch : chars) {
-            if (ch == ' ') {
-                charX += g2d.getFontMetrics().charWidth(' ');
+        for (String cluster : clusters) {
+            if (cluster.isEmpty()) continue;
+
+            boolean isSpace = cluster.trim().isEmpty();
+            if (isSpace) {
+                charX += fm.stringWidth(cluster);
                 continue;
             }
 
-            // Subtle handwriting variation
             float jitterX = (rnd.nextFloat() - 0.5f) * 0.8f;
             float jitterY = (rnd.nextFloat() - 0.5f) * 0.6f;
-            float rotation = (rnd.nextFloat() - 0.5f) * 0.015f; // ~0.8 deg
+            float rotation = (rnd.nextFloat() - 0.5f) * 0.015f;
 
-            // Ink pressure variation (alpha)
             int baseAlpha = 210;
             int alphaVariation = rnd.nextInt(30) - 15;
             int alpha = Math.max(160, Math.min(240, baseAlpha + alphaVariation));
@@ -277,13 +282,24 @@ public class NotebookPaperGenerator {
             try {
                 g2d.translate(charX + jitterX, baselineY + jitterY);
                 g2d.rotate(rotation);
-                g2d.drawString(String.valueOf(ch), 0, 0);
+                g2d.drawString(cluster, 0, 0);
             } finally {
                 g2d.setTransform(old);
             }
 
-            charX += g2d.getFontMetrics().charWidth(ch) + (rnd.nextFloat() - 0.5f) * 0.5f;
+            charX += fm.stringWidth(cluster) + (rnd.nextFloat() - 0.5f) * 0.5f;
         }
+    }
+
+    private static List<String> graphemeClusters(String text) {
+        List<String> clusters = new ArrayList<>();
+        BreakIterator bi = BreakIterator.getCharacterInstance(Locale.ROOT);
+        bi.setText(text);
+        int start = bi.first();
+        for (int end = bi.next(); end != BreakIterator.DONE; start = end, end = bi.next()) {
+            clusters.add(text.substring(start, end));
+        }
+        return clusters;
     }
 
     private static void drawBindingHoles(Graphics2D g2d, int w, int h) {

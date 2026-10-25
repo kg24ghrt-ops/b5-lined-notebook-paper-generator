@@ -7,10 +7,12 @@ import android.graphics.Paint;
 import android.graphics.RadialGradient;
 import android.graphics.Shader;
 import android.graphics.Typeface;
+import android.icu.text.BreakIterator;
 import android.util.SparseArray;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 
 /**
@@ -342,11 +344,15 @@ public final class NotebookPaperGenerator {
     }
 
     private static void drawHandwrittenText(Canvas canvas, Paint textPaint, String text, float x, float baselineY, Random rnd) {
+        List<String> clusters = graphemeClusters(text);
         float charX = x;
-        for (int i = 0; i < text.length(); i++) {
-            char ch = text.charAt(i);
-            if (ch == ' ') {
-                charX += textPaint.measureText(" ");
+
+        for (String cluster : clusters) {
+            if (cluster.isEmpty()) continue;
+
+            boolean isSpace = cluster.trim().isEmpty();
+            if (isSpace) {
+                charX += textPaint.measureText(cluster);
                 continue;
             }
 
@@ -361,11 +367,22 @@ public final class NotebookPaperGenerator {
             canvas.save();
             canvas.translate(charX + jitterX, baselineY + jitterY);
             canvas.rotate(rotation * 57.29578f); // radians to degrees
-            canvas.drawText(String.valueOf(ch), 0, 0, textPaint);
+            canvas.drawText(cluster, 0, 0, textPaint);
             canvas.restore();
 
-            charX += textPaint.measureText(String.valueOf(ch)) + (rnd.nextFloat() - 0.5f) * 0.5f;
+            charX += textPaint.measureText(cluster) + (rnd.nextFloat() - 0.5f) * 0.5f;
         }
+    }
+
+    private static List<String> graphemeClusters(String text) {
+        List<String> clusters = new ArrayList<>();
+        BreakIterator bi = BreakIterator.getCharacterInstance(Locale.ROOT);
+        bi.setText(text);
+        int start = bi.first();
+        for (int end = bi.next(); end != BreakIterator.DONE; start = end, end = bi.next()) {
+            clusters.add(text.substring(start, end));
+        }
+        return clusters;
     }
 
     private static void drawBindingHoles(Canvas canvas, Paint paint, int w, int h, int buckleCount) {
