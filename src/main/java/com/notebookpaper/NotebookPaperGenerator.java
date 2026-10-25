@@ -45,7 +45,20 @@ public class NotebookPaperGenerator {
         int widthPx = mmToPx(B5_WIDTH_MM);
         int heightPx = mmToPx(B5_HEIGHT_MM);
 
-        BufferedImage image = generate(widthPx, heightPx, List.of());
+        List<TypedLine> demoLines = List.of(
+                new TypedLine(0, "B5 Lined Notebook Paper", TypedLine.HorizontalPosition.SPAN_FULL),
+                new TypedLine(1, "Generated " + java.time.LocalDate.now(), TypedLine.HorizontalPosition.SPAN_FULL),
+                new TypedLine(2, "", TypedLine.HorizontalPosition.RIGHT_OF_MARGIN),
+                new TypedLine(3, "Meeting Notes", TypedLine.HorizontalPosition.RIGHT_OF_MARGIN),
+                new TypedLine(4, "  • Action item one", TypedLine.HorizontalPosition.RIGHT_OF_MARGIN),
+                new TypedLine(5, "  • Action item two", TypedLine.HorizontalPosition.RIGHT_OF_MARGIN),
+                new TypedLine(6, "  • Follow up tomorrow", TypedLine.HorizontalPosition.RIGHT_OF_MARGIN),
+                new TypedLine(7, "", TypedLine.HorizontalPosition.RIGHT_OF_MARGIN),
+                new TypedLine(8, "Private:", TypedLine.HorizontalPosition.LEFT_OF_MARGIN),
+                new TypedLine(9, "Reminder: call dentist", TypedLine.HorizontalPosition.LEFT_OF_MARGIN)
+        );
+
+        BufferedImage image = generate(widthPx, heightPx, demoLines);
 
         File outputFile = new File("output/notebook-paper-b5-lined.png");
         outputFile.getParentFile().mkdirs();
