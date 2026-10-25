@@ -297,24 +297,24 @@ public final class NotebookPaperGenerator {
 
             float x;
             switch (tl.position) {
-                case LEFT_OF_MARGIN -> {
+                case LEFT_OF_MARGIN:
                     // Start from left edge, leave small padding
                     x = 3f * sx;
-                }
-                case RIGHT_OF_MARGIN -> {
+                    break;
+                case RIGHT_OF_MARGIN:
                     // Start just right of the red margin line
                     int marginLeftPx = Math.round(LEFT_MARGIN_MM * sx);
                     x = marginLeftPx + 4f * sx;
-                }
-                case SPAN_FULL -> {
+                    break;
+                case SPAN_FULL:
                     // Center horizontally on the page
                     float textWidth = textPaint.measureText(tl.text);
                     x = (w - textWidth) / 2f;
-                }
-                default -> {
-                    int marginLeftPx = Math.round(LEFT_MARGIN_MM * sx);
-                    x = marginLeftPx + 4f * sx;
-                }
+                    break;
+                default:
+                    int marginLeftPx2 = Math.round(LEFT_MARGIN_MM * sx);
+                    x = marginLeftPx2 + 4f * sx;
+                    break;
             }
 
             canvas.drawText(tl.text, x, baselineY, textPaint);
