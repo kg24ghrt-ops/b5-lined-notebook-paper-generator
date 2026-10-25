@@ -6,6 +6,7 @@ import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Random;
 
 public class NotebookPaperGenerator {
@@ -23,13 +24,28 @@ public class NotebookPaperGenerator {
     private static final float HOLE_RADIUS_MM = 3.0f;
     private static final float FIRST_HOLE_Y_MM = 30.0f;
     private static final float LAST_HOLE_Y_MM = 220.0f;
-    private static final int DEFAULT_HOLE_COUNT = 2;
+
+    public record TypedLine(
+            int lineIndex,
+            String text,
+            HorizontalPosition position
+    ) {
+        public TypedLine(int lineIndex, String text) {
+            this(lineIndex, text, HorizontalPosition.RIGHT_OF_MARGIN);
+        }
+
+        public enum HorizontalPosition {
+            LEFT_OF_MARGIN,
+            RIGHT_OF_MARGIN,
+            SPAN_FULL
+        }
+    }
 
     public static void main(String[] args) throws IOException {
         int widthPx = mmToPx(B5_WIDTH_MM);
         int heightPx = mmToPx(B5_HEIGHT_MM);
 
-        BufferedImage image = generate(widthPx, heightPx, args);
+        BufferedImage image = generate(widthPx, heightPx, List.of());
 
         File outputFile = new File("output/notebook-paper-b5-lined.png");
         outputFile.getParentFile().mkdirs();
@@ -38,7 +54,7 @@ public class NotebookPaperGenerator {
         System.out.println("Size: " + widthPx + "x" + heightPx + " pixels (" + DPI + " DPI)");
     }
 
-    public static BufferedImage generate(int widthPx, int heightPx, String[] typedLines) {
+    public static BufferedImage generate(int widthPx, int heightPx, List<TypedLine> typedLines) {
         BufferedImage image = new BufferedImage(widthPx, heightPx, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = createGraphics(image);
 
@@ -53,11 +69,23 @@ public class NotebookPaperGenerator {
         drawRuledLines(g2d, widthPx, heightPx, topMarginPx, lineSpacingPx);
         drawHeaderLine(g2d, widthPx, topMarginPx, heightPx);
         drawMarginLine(g2d, heightPx, marginLeftPx);
-        drawTypedText(g2d, typedLines, widthPx, heightPx, topMarginPx, lineSpacingPx, marginLeftPx);
+        drawTypedLines(g2d, typedLines, widthPx, heightPx, topMarginPx, lineSpacingPx, marginLeftPx);
         drawBindingHoles(g2d, widthPx, heightPx);
 
         g2d.dispose();
         return image;
+    }
+
+    // Backward compatibility
+    public static BufferedImage generate(int widthPx, int heightPx, String[] typedLines) {
+        if (typedLines == null || typedLines.length == 0) {
+            return generate(widthPx, heightPx, List.of());
+        }
+        List<TypedLine> lines = new java.util.ArrayList<>();
+        for (int i = 0; i < typedLines.length; i++) {
+            lines.add(new TypedLine(i, typedLines[i]));
+        }
+        return generate(widthPx, heightPx, lines);
     }
 
     private static Graphics2D createGraphics(BufferedImage image) {
@@ -151,14 +179,48 @@ public class NotebookPaperGenerator {
         g2d.drawLine(marginLeftPx, 0, marginLeftPx, h);
     }
 
-    private static void drawTypedText(Graphics2D g2d, String[] lines, int w, int h,
-                                      int topMarginPx, int lineSpacingPx, int marginLeftPx) {
-        if (lines == null || lines.length == 0) return;
-        g2d.setFont(new Font("Serif", Font.PLAIN, mmToPx(4.0f, h, B5_HEIGHT_MM)));
+    private static void drawTypedLines(Graphics2D g2d, List<TypedLine> lines, int w, int h,
+                                        int topMarginPx, int lineSpacingPx, int marginLeftPx) {
+        if (lines == null || lines.isEmpty()) return;
+
+        int fontSize = mmToPx(4.0f, h, B5_HEIGHT_MM);
+        g2d.setFont(new Font("Serif", Font.PLAIN, fontSize));
         g2d.setColor(new Color(40, 40, 60, 210));
-        for (int i = 0; i < lines.length; i++) {
-            int y = topMarginPx + i * lineSpacingPx - mmToPx(1.0f, h, B5_HEIGHT_MM);
-            g2d.drawString(lines[i], marginLeftPx + mmToPx(4.0f, w, B5_WIDTH_MM), y);
+
+        FontMetrics fm = g2d.getFontMetrics();
+        int textHeight = fm.getHeight();
+        int descent = fm.getDescent();
+
+        for (TypedLine tl : lines) {
+            if (tl.text() == null || tl.text().isEmpty()) continue;
+
+            // Ruled line Y position (center of the line stroke)
+            int lineY = topMarginPx + tl.lineIndex() * lineSpacingPx;
+
+            // Align text baseline to the ruled line (so it sits "on" the line)
+            int baselineY = lineY + descent / 2;
+
+            int x;
+            switch (tl.position()) {
+                case LEFT_OF_MARGIN -> {
+                    // Start from left edge, leave small padding
+                    int leftPadding = mmToPx(3.0f, w, B5_WIDTH_MM);
+                    x = leftPadding;
+                }
+                case RIGHT_OF_MARGIN -> {
+                    // Start just right of the red margin line
+                    int marginPadding = mmToPx(4.0f, w, B5_WIDTH_MM);
+                    x = marginLeftPx + marginPadding;
+                }
+                case SPAN_FULL -> {
+                    // Center horizontally on the page
+                    int textWidth = fm.stringWidth(tl.text());
+                    x = (w - textWidth) / 2;
+                }
+                default -> x = marginLeftPx + mmToPx(4.0f, w, B5_WIDTH_MM);
+            }
+
+            g2d.drawString(tl.text(), x, baselineY);
         }
     }
 

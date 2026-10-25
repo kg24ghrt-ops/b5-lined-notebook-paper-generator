@@ -8,6 +8,8 @@ import android.graphics.RadialGradient;
 import android.graphics.Shader;
 import android.util.SparseArray;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -35,6 +37,46 @@ public final class NotebookPaperGenerator {
 
     // Default number of ring-binder holes ("buckles")
     public static final int DEFAULT_BUCKLE_COUNT = 2;
+
+    /**
+     * Horizontal text position relative to the red margin line.
+     */
+    public enum HorizontalPosition {
+        LEFT_OF_MARGIN,
+        RIGHT_OF_MARGIN,
+        SPAN_FULL
+    }
+
+    /**
+     * A single line of typed text on the notebook paper.
+     */
+    public static final class TypedLine {
+        public final int lineIndex;
+        public final String text;
+        public final HorizontalPosition position;
+
+        public TypedLine(int lineIndex, String text) {
+            this(lineIndex, text, HorizontalPosition.RIGHT_OF_MARGIN);
+        }
+
+        public TypedLine(int lineIndex, String text, HorizontalPosition position) {
+            this.lineIndex = lineIndex;
+            this.text = text;
+            this.position = position;
+        }
+
+        public static TypedLine leftOfMargin(int lineIndex, String text) {
+            return new TypedLine(lineIndex, text, HorizontalPosition.LEFT_OF_MARGIN);
+        }
+
+        public static TypedLine rightOfMargin(int lineIndex, String text) {
+            return new TypedLine(lineIndex, text, HorizontalPosition.RIGHT_OF_MARGIN);
+        }
+
+        public static TypedLine spanFull(int lineIndex, String text) {
+            return new TypedLine(lineIndex, text, HorizontalPosition.SPAN_FULL);
+        }
+    }
 
     /**
      * Top margin in pixels for a bitmap of the given height.
@@ -84,6 +126,19 @@ public final class NotebookPaperGenerator {
      * @return ARGB_8888 bitmap of the generated paper
      */
     public static Bitmap generate(int widthPx, int heightPx, int buckleCount) {
+        return generate(widthPx, heightPx, buckleCount, (List<TypedLine>) null);
+    }
+
+    /**
+     * Generates the notebook paper bitmap with typed lines.
+     *
+     * @param widthPx     desired width in pixels
+     * @param heightPx    desired height in pixels
+     * @param buckleCount number of ring-binder holes along the left margin (>= 0)
+     * @param typedLines  list of typed lines (null or empty for no text)
+     * @return ARGB_8888 bitmap of the generated paper
+     */
+    public static Bitmap generate(int widthPx, int heightPx, int buckleCount, List<TypedLine> typedLines) {
         Bitmap bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
 
@@ -105,29 +160,24 @@ public final class NotebookPaperGenerator {
         drawMarginLine(canvas, paint, heightPx, sx);
         drawBindingHoles(canvas, paint, widthPx, heightPx, buckleCount);
 
+        if (typedLines != null && !typedLines.isEmpty()) {
+            drawTypedLines(canvas, paint, widthPx, heightPx, topMarginPx, lineSpacingPx, sx, typedLines);
+        }
+
         return bitmap;
     }
 
+    /**
+     * Legacy API using SparseArray (line index -> text).
+     * Text is positioned RIGHT_OF_MARGIN by default.
+     */
     public static Bitmap generate(int widthPx, int heightPx, int buckleCount, SparseArray<String> lines) {
-        Bitmap bitmap = generate(widthPx, heightPx, buckleCount);
-        if (lines == null || lines.size() == 0) return bitmap;
-        Canvas canvas = new Canvas(bitmap);
-        float sx = widthPx / B5_WIDTH_MM;
-        float sy = heightPx / B5_HEIGHT_MM;
-        int topMarginPx = Math.round(TOP_MARGIN_MM * sy);
-        int lineSpacingPx = Math.round(LINE_SPACING_MM * sy);
-        Paint textPaint = new Paint();
-        textPaint.setAntiAlias(true);
-        textPaint.setColor(Color.argb(220, 40, 40, 60));
-        textPaint.setTextSize(Math.max(12f, 4f * sy));
+        if (lines == null || lines.size() == 0) return generate(widthPx, heightPx, buckleCount);
+        List<TypedLine> typedLines = new ArrayList<>(lines.size());
         for (int i = 0; i < lines.size(); i++) {
-            int lineIndex = lines.keyAt(i);
-            String text = lines.valueAt(i);
-            if (text == null || text.isEmpty()) continue;
-            float y = topMarginPx + lineIndex * lineSpacingPx - textPaint.descent();
-            canvas.drawText(text, 4f * sx, y, textPaint);
+            typedLines.add(new TypedLine(lines.keyAt(i), lines.valueAt(i)));
         }
-        return bitmap;
+        return generate(widthPx, heightPx, buckleCount, typedLines);
     }
 
     /**
@@ -135,11 +185,11 @@ public final class NotebookPaperGenerator {
      */
     public static Bitmap generate(int widthPx, int heightPx, int buckleCount, String[] lines) {
         if (lines == null || lines.length == 0) return generate(widthPx, heightPx, buckleCount);
-        SparseArray<String> sparse = new SparseArray<>(lines.length);
+        List<TypedLine> typedLines = new ArrayList<>(lines.length);
         for (int i = 0; i < lines.length; i++) {
-            sparse.put(i, lines[i]);
+            typedLines.add(new TypedLine(i, lines[i]));
         }
-        return generate(widthPx, heightPx, buckleCount, sparse);
+        return generate(widthPx, heightPx, buckleCount, typedLines);
     }
 
     private static void drawPaperBase(Canvas canvas, Paint paint, int w, int h) {
@@ -223,6 +273,52 @@ public final class NotebookPaperGenerator {
         paint.setColor(Color.argb(220, 180, 55, 50));
         paint.setStrokeWidth(1.0f);
         canvas.drawLine(marginLeftPx, 0, marginLeftPx, h, paint);
+    }
+
+    private static void drawTypedLines(Canvas canvas, Paint paint, int w, int h,
+                                        int topMarginPx, int lineSpacingPx, float sx,
+                                        List<TypedLine> typedLines) {
+        Paint textPaint = new Paint();
+        textPaint.setAntiAlias(true);
+        textPaint.setColor(Color.argb(220, 40, 40, 60));
+        textPaint.setTextSize(Math.max(12f, 4f * sy));
+
+        Paint.FontMetrics fm = textPaint.getFontMetrics();
+        int descent = (int) Math.ceil(fm.descent);
+
+        for (TypedLine tl : typedLines) {
+            if (tl.text == null || tl.text.isEmpty()) continue;
+
+            // Ruled line Y position (center of the line stroke)
+            float lineY = topMarginPx + tl.lineIndex * lineSpacingPx;
+
+            // Align text baseline to the ruled line (so it sits "on" the line)
+            float baselineY = lineY + descent / 2f;
+
+            float x;
+            switch (tl.position) {
+                case LEFT_OF_MARGIN -> {
+                    // Start from left edge, leave small padding
+                    x = 3f * sx;
+                }
+                case RIGHT_OF_MARGIN -> {
+                    // Start just right of the red margin line
+                    int marginLeftPx = Math.round(LEFT_MARGIN_MM * sx);
+                    x = marginLeftPx + 4f * sx;
+                }
+                case SPAN_FULL -> {
+                    // Center horizontally on the page
+                    float textWidth = textPaint.measureText(tl.text);
+                    x = (w - textWidth) / 2f;
+                }
+                default -> {
+                    int marginLeftPx = Math.round(LEFT_MARGIN_MM * sx);
+                    x = marginLeftPx + 4f * sx;
+                }
+            }
+
+            canvas.drawText(tl.text, x, baselineY, textPaint);
+        }
     }
 
     private static void drawBindingHoles(Canvas canvas, Paint paint, int w, int h, int buckleCount) {
