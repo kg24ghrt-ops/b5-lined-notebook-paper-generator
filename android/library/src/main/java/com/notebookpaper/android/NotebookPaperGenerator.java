@@ -161,7 +161,7 @@ public final class NotebookPaperGenerator {
         drawBindingHoles(canvas, paint, widthPx, heightPx, buckleCount);
 
         if (typedLines != null && !typedLines.isEmpty()) {
-            drawTypedLines(canvas, paint, widthPx, heightPx, topMarginPx, lineSpacingPx, sx, typedLines);
+            drawTypedLines(canvas, paint, widthPx, heightPx, topMarginPx, lineSpacingPx, sx, sy, typedLines);
         }
 
         return bitmap;
@@ -276,7 +276,7 @@ public final class NotebookPaperGenerator {
     }
 
     private static void drawTypedLines(Canvas canvas, Paint paint, int w, int h,
-                                        int topMarginPx, int lineSpacingPx, float sx,
+                                        int topMarginPx, int lineSpacingPx, float sx, float sy,
                                         List<TypedLine> typedLines) {
         Paint textPaint = new Paint();
         textPaint.setAntiAlias(true);
