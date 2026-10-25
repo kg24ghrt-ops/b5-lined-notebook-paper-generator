@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
 import android.graphics.Shader;
+import android.graphics.Typeface;
 import android.util.SparseArray;
 
 import java.util.ArrayList;
@@ -280,34 +281,31 @@ public final class NotebookPaperGenerator {
                                         List<TypedLine> typedLines) {
         Paint textPaint = new Paint();
         textPaint.setAntiAlias(true);
+        textPaint.setSubpixelText(true);
         textPaint.setColor(Color.argb(220, 40, 40, 60));
         textPaint.setTextSize(Math.max(12f, 4f * sy));
+        textPaint.setTypeface(resolveHandwritingTypeface());
 
         Paint.FontMetrics fm = textPaint.getFontMetrics();
         int descent = (int) Math.ceil(fm.descent);
+        Random rnd = new Random(42);
 
         for (TypedLine tl : typedLines) {
             if (tl.text == null || tl.text.isEmpty()) continue;
 
-            // Ruled line Y position (center of the line stroke)
             float lineY = topMarginPx + tl.lineIndex * lineSpacingPx;
-
-            // Align text baseline to the ruled line (so it sits "on" the line)
             float baselineY = lineY + descent / 2f;
 
             float x;
             switch (tl.position) {
                 case LEFT_OF_MARGIN:
-                    // Start from left edge, leave small padding
                     x = 3f * sx;
                     break;
                 case RIGHT_OF_MARGIN:
-                    // Start just right of the red margin line
                     int marginLeftPx = Math.round(LEFT_MARGIN_MM * sx);
                     x = marginLeftPx + 4f * sx;
                     break;
                 case SPAN_FULL:
-                    // Center horizontally on the page
                     float textWidth = textPaint.measureText(tl.text);
                     x = (w - textWidth) / 2f;
                     break;
@@ -317,7 +315,56 @@ public final class NotebookPaperGenerator {
                     break;
             }
 
-            canvas.drawText(tl.text, x, baselineY, textPaint);
+            drawHandwrittenText(canvas, textPaint, tl.text, x, baselineY, rnd);
+        }
+    }
+
+    private static Typeface resolveHandwritingTypeface() {
+        // Android system fonts with Myanmar support
+        String[] candidates = {
+            "NotoSerifMyanmar-Regular",
+            "NotoSansMyanmar-Regular",
+            "NotoSerif-Regular",
+            "serif",
+            "sans-serif"
+        };
+        for (String name : candidates) {
+            Typeface tf = Typeface.create(name, Typeface.NORMAL);
+            if (tf != null && canDisplayMyanmar(tf)) return tf;
+        }
+        return Typeface.DEFAULT;
+    }
+
+    private static boolean canDisplayMyanmar(Typeface tf) {
+        Paint p = new Paint();
+        p.setTypeface(tf);
+        return p.measureText("မြန်မာစာ") > 0;
+    }
+
+    private static void drawHandwrittenText(Canvas canvas, Paint textPaint, String text, float x, float baselineY, Random rnd) {
+        float charX = x;
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch == ' ') {
+                charX += textPaint.measureText(" ");
+                continue;
+            }
+
+            float jitterX = (rnd.nextFloat() - 0.5f) * 0.8f;
+            float jitterY = (rnd.nextFloat() - 0.5f) * 0.6f;
+            float rotation = (rnd.nextFloat() - 0.5f) * 0.015f;
+
+            int alphaVariation = rnd.nextInt(30) - 15;
+            int alpha = Math.max(160, Math.min(240, 210 + alphaVariation));
+            textPaint.setAlpha(alpha);
+
+            canvas.save();
+            canvas.translate(charX + jitterX, baselineY + jitterY);
+            canvas.rotate(rotation * 57.29578f); // radians to degrees
+            canvas.drawText(String.valueOf(ch), 0, 0, textPaint);
+            canvas.restore();
+
+            charX += textPaint.measureText(String.valueOf(ch)) + (rnd.nextFloat() - 0.5f) * 0.5f;
         }
     }
 

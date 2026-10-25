@@ -2,6 +2,7 @@ package com.notebookpaper;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -197,43 +198,91 @@ public class NotebookPaperGenerator {
         if (lines == null || lines.isEmpty()) return;
 
         int fontSize = mmToPx(4.0f, h, B5_HEIGHT_MM);
-        g2d.setFont(new Font("Serif", Font.PLAIN, fontSize));
+        Font baseFont = resolveHandwritingFont(fontSize);
+        g2d.setFont(baseFont);
         g2d.setColor(new Color(40, 40, 60, 210));
 
         FontMetrics fm = g2d.getFontMetrics();
-        int textHeight = fm.getHeight();
         int descent = fm.getDescent();
+        Random rnd = new Random(42);
+
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
 
         for (TypedLine tl : lines) {
             if (tl.text() == null || tl.text().isEmpty()) continue;
 
-            // Ruled line Y position (center of the line stroke)
             int lineY = topMarginPx + tl.lineIndex() * lineSpacingPx;
-
-            // Align text baseline to the ruled line (so it sits "on" the line)
             int baselineY = lineY + descent / 2;
 
             int x;
             switch (tl.position()) {
                 case LEFT_OF_MARGIN -> {
-                    // Start from left edge, leave small padding
                     int leftPadding = mmToPx(3.0f, w, B5_WIDTH_MM);
                     x = leftPadding;
                 }
                 case RIGHT_OF_MARGIN -> {
-                    // Start just right of the red margin line
                     int marginPadding = mmToPx(4.0f, w, B5_WIDTH_MM);
                     x = marginLeftPx + marginPadding;
                 }
                 case SPAN_FULL -> {
-                    // Center horizontally on the page
                     int textWidth = fm.stringWidth(tl.text());
                     x = (w - textWidth) / 2;
                 }
                 default -> x = marginLeftPx + mmToPx(4.0f, w, B5_WIDTH_MM);
             }
 
-            g2d.drawString(tl.text(), x, baselineY);
+            drawHandwrittenText(g2d, tl.text(), x, baselineY, rnd);
+        }
+    }
+
+    private static Font resolveHandwritingFont(int fontSize) {
+        String[] candidates = {
+            "Noto Serif Myanmar",   // Best Myanmar + Latin
+            "Noto Sans Myanmar",
+            "Noto Serif",           // Good Latin, decent Myanmar fallback
+            "Serif",                // System serif
+            "Dialog"                // Last resort
+        };
+        for (String name : candidates) {
+            Font f = new Font(name, Font.PLAIN, fontSize);
+            if (f.canDisplayUpTo("မြန်မာစာ") == -1) return f;
+        }
+        return new Font("Serif", Font.PLAIN, fontSize);
+    }
+
+    private static void drawHandwrittenText(Graphics2D g2d, String text, int x, int baselineY, Random rnd) {
+        char[] chars = text.toCharArray();
+        int charX = x;
+
+        for (char ch : chars) {
+            if (ch == ' ') {
+                charX += g2d.getFontMetrics().charWidth(' ');
+                continue;
+            }
+
+            // Subtle handwriting variation
+            float jitterX = (rnd.nextFloat() - 0.5f) * 0.8f;
+            float jitterY = (rnd.nextFloat() - 0.5f) * 0.6f;
+            float rotation = (rnd.nextFloat() - 0.5f) * 0.015f; // ~0.8 deg
+
+            // Ink pressure variation (alpha)
+            int baseAlpha = 210;
+            int alphaVariation = rnd.nextInt(30) - 15;
+            int alpha = Math.max(160, Math.min(240, baseAlpha + alphaVariation));
+
+            g2d.setColor(new Color(40, 40, 60, alpha));
+
+            AffineTransform old = g2d.getTransform();
+            try {
+                g2d.translate(charX + jitterX, baselineY + jitterY);
+                g2d.rotate(rotation);
+                g2d.drawString(String.valueOf(ch), 0, 0);
+            } finally {
+                g2d.setTransform(old);
+            }
+
+            charX += g2d.getFontMetrics().charWidth(ch) + (rnd.nextFloat() - 0.5f) * 0.5f;
         }
     }
 
