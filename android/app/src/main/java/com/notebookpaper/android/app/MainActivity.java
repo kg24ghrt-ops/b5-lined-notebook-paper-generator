@@ -2,7 +2,9 @@ package com.notebookpaper.android.app;
 
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
@@ -72,6 +74,9 @@ public class MainActivity extends AppCompatActivity {
         termsButton.setOnClickListener(v -> {
             startActivity(new Intent(this, TermsOfUseActivity.class));
         });
+
+        Button saveButton = findViewById(R.id.saveButton);
+        saveButton.setOnClickListener(v -> saveToGallery());
     }
 
     private void onPaperTapped(float bitmapX, float bitmapY) {
@@ -122,6 +127,24 @@ public class MainActivity extends AppCompatActivity {
         int height = Math.max(1, mPaperImage.getHeight());
         mPaperImage.setPaperImage(NotebookPaperGenerator.generate(
                 width, height, NotebookPaperGenerator.DEFAULT_BUCKLE_COUNT, mLineTexts));
+    }
+
+    /**
+     * Saves the generated paper to the MediaStore so it appears in the gallery.
+     * Uses MediaStore.insertImage, which writes through the scoped-storage
+     * provider and needs no storage permission on Android 11+ (minSdk 30).
+     * <p>
+     * shortcut: insertImage is deprecated since API 29, upgrade to
+     * MediaStore.createWriteRequest if Google removes it or a chooser UI is wanted.
+     */
+    private void saveToGallery() {
+        Bitmap bitmap = mPaperImage.getPaperBitmap();
+        if (bitmap == null) return;
+        String uri = MediaStore.Images.Media.insertImage(
+                getContentResolver(), bitmap, "Notebook Paper", "Generated notebook paper");
+        Toast.makeText(this,
+                uri != null ? R.string.msg_saved : R.string.msg_save_failed,
+                Toast.LENGTH_SHORT).show();
     }
 
     private void toggleZoom() {

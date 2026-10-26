@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Notebook Paper</string>
+    <string name="action_save">Save to Gallery</string>
+    <string name="msg_saved">Saved to gallery</string>
+    <string name="msg_save_failed">Failed to save to gallery</string>
 </resources>

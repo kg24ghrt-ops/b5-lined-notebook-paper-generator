@@ -159,6 +159,13 @@ public class ZoomableImageView extends ImageView {
         setImageMatrix(mMatrix);
     }
 
+    /**
+     * Returns the currently displayed paper bitmap, or null if none is set.
+     */
+    public android.graphics.Bitmap getPaperBitmap() {
+        return mBitmap;
+    }
+
     public void zoomToCenter() {
         mScale = mBaseScale;
         mMatrix.reset();
