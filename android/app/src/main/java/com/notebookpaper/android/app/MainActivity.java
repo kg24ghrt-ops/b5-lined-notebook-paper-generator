@@ -126,7 +126,7 @@ public class MainActivity extends AppCompatActivity {
         int width = Math.max(1, mPaperImage.getWidth());
         int height = Math.max(1, mPaperImage.getHeight());
         mPaperImage.setPaperImage(NotebookPaperGenerator.generate(
-                width, height, NotebookPaperGenerator.DEFAULT_BUCKLE_COUNT, mLineTexts));
+                this, width, height, NotebookPaperGenerator.DEFAULT_BUCKLE_COUNT, mLineTexts));
     }
 
     /**

@@ -28,6 +28,7 @@ public class NotebookPaperGenerator {
     private static final float HOLE_RADIUS_MM = 3.0f;
     private static final float FIRST_HOLE_Y_MM = 30.0f;
     private static final float LAST_HOLE_Y_MM = 220.0f;
+    private static final String MYANMAR_VIRAMA = "\u1039";
 
     public record TypedLine(
             int lineIndex,
@@ -216,7 +217,7 @@ public class NotebookPaperGenerator {
             if (tl.text() == null || tl.text().isEmpty()) continue;
 
             int lineY = topMarginPx + tl.lineIndex() * lineSpacingPx;
-            int baselineY = lineY + descent / 2;
+            float baselineY = lineY - descent * 0.6f;
 
             int x;
             switch (tl.position()) {
@@ -254,7 +255,7 @@ public class NotebookPaperGenerator {
         return new Font("Serif", Font.PLAIN, fontSize);
     }
 
-    private static void drawHandwrittenText(Graphics2D g2d, String text, int x, int baselineY,
+    private static void drawHandwrittenText(Graphics2D g2d, String text, int x, float baselineY,
                                              FontMetrics fm, Random rnd) {
         List<String> clusters = graphemeClusters(text);
         int charX = x;
@@ -297,7 +298,16 @@ public class NotebookPaperGenerator {
         bi.setText(text);
         int start = bi.first();
         for (int end = bi.next(); end != BreakIterator.DONE; start = end, end = bi.next()) {
-            clusters.add(text.substring(start, end));
+            String cluster = text.substring(start, end);
+            int last = clusters.size() - 1;
+            boolean merge = !cluster.isEmpty() && last >= 0
+                    && clusters.get(last).endsWith(MYANMAR_VIRAMA)
+                    && !cluster.trim().isEmpty();
+            if (merge) {
+                clusters.set(last, clusters.get(last) + cluster);
+            } else {
+                clusters.add(cluster);
+            }
         }
         return clusters;
     }
