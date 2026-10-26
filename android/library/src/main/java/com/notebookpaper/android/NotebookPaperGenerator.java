@@ -6,13 +6,10 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
 import android.graphics.Shader;
-import android.graphics.Typeface;
-import android.icu.text.BreakIterator;
 import android.util.SparseArray;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Random;
 
 /**
@@ -286,7 +283,7 @@ public final class NotebookPaperGenerator {
         textPaint.setSubpixelText(true);
         textPaint.setColor(Color.argb(220, 40, 40, 60));
         textPaint.setTextSize(Math.max(12f, 4f * sy));
-        textPaint.setTypeface(resolveHandwritingTypeface());
+        textPaint.setTypeface(MyanmarSupport.resolveTypeface());
 
         Paint.FontMetrics fm = textPaint.getFontMetrics();
         int descent = (int) Math.ceil(fm.descent);
@@ -321,30 +318,8 @@ public final class NotebookPaperGenerator {
         }
     }
 
-    private static Typeface resolveHandwritingTypeface() {
-        // Android system fonts with Myanmar support
-        String[] candidates = {
-            "NotoSerifMyanmar-Regular",
-            "NotoSansMyanmar-Regular",
-            "NotoSerif-Regular",
-            "serif",
-            "sans-serif"
-        };
-        for (String name : candidates) {
-            Typeface tf = Typeface.create(name, Typeface.NORMAL);
-            if (tf != null && canDisplayMyanmar(tf)) return tf;
-        }
-        return Typeface.DEFAULT;
-    }
-
-    private static boolean canDisplayMyanmar(Typeface tf) {
-        Paint p = new Paint();
-        p.setTypeface(tf);
-        return p.measureText("မြန်မာစာ") > 0;
-    }
-
     private static void drawHandwrittenText(Canvas canvas, Paint textPaint, String text, float x, float baselineY, Random rnd) {
-        List<String> clusters = graphemeClusters(text);
+        List<String> clusters = MyanmarSupport.graphemeClusters(text);
         float charX = x;
 
         for (String cluster : clusters) {
@@ -356,9 +331,9 @@ public final class NotebookPaperGenerator {
                 continue;
             }
 
-            float jitterX = (rnd.nextFloat() - 0.5f) * 0.8f;
-            float jitterY = (rnd.nextFloat() - 0.5f) * 0.6f;
-            float rotation = (rnd.nextFloat() - 0.5f) * 0.015f;
+            float jitterX = (rnd.nextFloat() - 0.5f) * 0.3f;
+            float jitterY = (rnd.nextFloat() - 0.5f) * 0.2f;
+            float rotation = (rnd.nextFloat() - 0.5f) * 0.005f;
 
             int alphaVariation = rnd.nextInt(30) - 15;
             int alpha = Math.max(160, Math.min(240, 210 + alphaVariation));
@@ -372,17 +347,6 @@ public final class NotebookPaperGenerator {
 
             charX += textPaint.measureText(cluster) + (rnd.nextFloat() - 0.5f) * 0.5f;
         }
-    }
-
-    private static List<String> graphemeClusters(String text) {
-        List<String> clusters = new ArrayList<>();
-        BreakIterator bi = BreakIterator.getCharacterInstance(Locale.ROOT);
-        bi.setText(text);
-        int start = bi.first();
-        for (int end = bi.next(); end != BreakIterator.DONE; start = end, end = bi.next()) {
-            clusters.add(text.substring(start, end));
-        }
-        return clusters;
     }
 
     private static void drawBindingHoles(Canvas canvas, Paint paint, int w, int h, int buckleCount) {
