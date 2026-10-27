@@ -7,12 +7,10 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
 import android.graphics.Shader;
-import android.icu.text.BreakIterator;
 import android.util.SparseArray;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Random;
 
 /**
@@ -331,22 +329,23 @@ public final class NotebookPaperGenerator {
     private static List<String> wrapLines(Paint paint, String text, float maxWidth) {
         List<String> lines = new ArrayList<>();
         if (text.isEmpty()) return lines;
-        BreakIterator bi = BreakIterator.getLineInstance(new Locale("my", "MM"));
-        bi.setText(text);
-        int start = bi.first();
-        int lineStart = start;
+        // Wrap at grapheme-cluster boundaries so a Myanmar stack or English
+        // word is never split across lines (which would draw a dotted circle).
+        List<String> clusters = MyanmarSupport.graphemeClusters(text);
+        StringBuilder line = new StringBuilder();
         float lineWidth = 0f;
-        for (int end = bi.next(); end != BreakIterator.DONE; start = end, end = bi.next()) {
-            float seg = paint.measureText(text, start, end);
-            if (lineWidth + seg > maxWidth && lineStart < start) {
-                lines.add(text.substring(lineStart, start));
-                lineStart = start;
-                lineWidth = seg;
-            } else {
-                lineWidth += seg;
+        for (String cluster : clusters) {
+            if (cluster.isEmpty()) continue;
+            float width = paint.measureText(cluster);
+            if (lineWidth > 0f && lineWidth + width > maxWidth) {
+                lines.add(line.toString());
+                line.setLength(0);
+                lineWidth = 0f;
             }
+            line.append(cluster);
+            lineWidth += width;
         }
-        lines.add(text.substring(lineStart));
+        if (line.length() > 0) lines.add(line.toString());
         return lines;
     }
 
