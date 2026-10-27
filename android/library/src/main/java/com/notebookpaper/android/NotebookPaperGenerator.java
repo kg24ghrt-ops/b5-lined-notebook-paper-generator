@@ -23,14 +23,18 @@ import java.util.Random;
 public final class NotebookPaperGenerator {
 
     // B5 dimensions in mm: 176 x 250
-    private static final float B5_WIDTH_MM = 176.0f;
-    private static final float B5_HEIGHT_MM = 250.0f;
+    public static final float B5_WIDTH_MM = 176.0f;
+    public static final float B5_HEIGHT_MM = 250.0f;
+
+    // Cached texture tile. The tile is deterministic (fixed seed), so one
+    // shared instance is safe to reuse across canvases; it is never recycled.
+    private static Bitmap sTextureTile;
 
     // Notebook measurements in mm (relative to the B5 page)
-    private static final float TOP_MARGIN_MM = 25.0f;
-    private static final float HEADER_GAP_MM = 4.0f;
-    private static final float LINE_SPACING_MM = 8.0f;
-    private static final float LEFT_MARGIN_MM = 20.0f;
+    public static final float TOP_MARGIN_MM = 25.0f;
+    public static final float HEADER_GAP_MM = 4.0f;
+    public static final float LINE_SPACING_MM = 8.0f;
+    public static final float LEFT_MARGIN_MM = 20.0f;
     private static final float HOLE_X_MM = 8.0f;
     private static final float HOLE_RADIUS_MM = 3.0f;
     private static final float FIRST_HOLE_Y_MM = 30.0f;
@@ -132,24 +136,24 @@ public final class NotebookPaperGenerator {
     }
 
     /**
-     * Generates the notebook paper bitmap with typed lines.
+     * Generates the blank paper background (base color, texture, vignette,
+     * ruled lines, header/margin lines, and binding holes) with no text.
+     * The result is cheap to cache and reuse; only the text layer changes
+     * when the user edits.
      *
-     * @param context    used to resolve the bundled Myanmar font
      * @param widthPx     desired width in pixels
      * @param heightPx    desired height in pixels
      * @param buckleCount number of ring-binder holes along the left margin (>= 0)
-     * @param typedLines  list of typed lines (null or empty for no text)
-     * @return ARGB_8888 bitmap of the generated paper
+     * @return ARGB_8888 bitmap of the blank paper
      */
-    public static Bitmap generate(Context context, int widthPx, int heightPx, int buckleCount, List<TypedLine> typedLines) {
+    public static Bitmap generateBlankPaper(int widthPx, int heightPx, int buckleCount) {
         Bitmap bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint();
+        paint.setAntiAlias(true);
 
         float sx = widthPx / B5_WIDTH_MM;
         float sy = heightPx / B5_HEIGHT_MM;
-
-        Paint paint = new Paint();
-        paint.setAntiAlias(true);
 
         drawPaperBase(canvas, paint, widthPx, heightPx);
         drawPaperTexture(canvas, paint, widthPx, heightPx);
@@ -162,6 +166,53 @@ public final class NotebookPaperGenerator {
         drawHeaderLine(canvas, paint, widthPx, topMarginPx, sy);
         drawMarginLine(canvas, paint, heightPx, sx);
         drawBindingHoles(canvas, paint, widthPx, heightPx, buckleCount);
+
+        return bitmap;
+    }
+
+    /**
+     * Draws typed lines onto an already-rendered blank paper bitmap. Used by
+     * callers that cache the blank paper and only re-render the text layer on
+     * each edit.
+     *
+     * @param canvas      canvas targeting the (mutable) paper bitmap
+     * @param paint       paint to draw with (anti-aliased)
+     * @param context     used to resolve the bundled Myanmar font
+     * @param w           bitmap width in pixels
+     * @param h           bitmap height in pixels
+     * @param topMarginPx top margin in pixels for this bitmap's height
+     * @param lineSpacingPx ruled line spacing in pixels for this bitmap's height
+     * @param sx          horizontal scale (px per mm)
+     * @param sy          vertical scale (px per mm)
+     * @param typedLines  text to draw (null or empty for none)
+     */
+    public static void drawTextOnPaper(Canvas canvas, Paint paint, Context context, int w, int h,
+                                        int topMarginPx, int lineSpacingPx, float sx, float sy,
+                                        List<TypedLine> typedLines) {
+        if (typedLines == null || typedLines.isEmpty()) return;
+        drawTypedLines(canvas, paint, context, w, h, topMarginPx, lineSpacingPx, sx, sy, typedLines);
+    }
+
+    /**
+     * Generates the notebook paper bitmap with typed lines.
+     *
+     * @param context    used to resolve the bundled Myanmar font
+     * @param widthPx     desired width in pixels
+     * @param heightPx    desired height in pixels
+     * @param buckleCount number of ring-binder holes along the left margin (>= 0)
+     * @param typedLines  list of typed lines (null or empty for no text)
+     * @return ARGB_8888 bitmap of the generated paper
+     */
+    public static Bitmap generate(Context context, int widthPx, int heightPx, int buckleCount, List<TypedLine> typedLines) {
+        Bitmap bitmap = generateBlankPaper(widthPx, heightPx, buckleCount);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint();
+        paint.setAntiAlias(true);
+
+        float sx = widthPx / B5_WIDTH_MM;
+        float sy = heightPx / B5_HEIGHT_MM;
+        int topMarginPx = Math.round(TOP_MARGIN_MM * sy);
+        int lineSpacingPx = Math.round(LINE_SPACING_MM * sy);
 
         if (typedLines != null && !typedLines.isEmpty()) {
             drawTypedLines(canvas, paint, context, widthPx, heightPx, topMarginPx, lineSpacingPx, sx, sy, typedLines);
@@ -217,6 +268,10 @@ public final class NotebookPaperGenerator {
     }
 
     private static Bitmap createTextureTile(int size) {
+        if (sTextureTile != null && sTextureTile.getWidth() == size
+                && sTextureTile.getHeight() == size && !sTextureTile.isRecycled()) {
+            return sTextureTile;
+        }
         Bitmap tile = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(tile);
         Paint p = new Paint();
@@ -229,6 +284,7 @@ public final class NotebookPaperGenerator {
             p.setColor(Color.argb(rnd.nextInt(40) + 10, shade, shade, shade));
             c.drawPoint(x, y, p);
         }
+        sTextureTile = tile;
         return tile;
     }
 

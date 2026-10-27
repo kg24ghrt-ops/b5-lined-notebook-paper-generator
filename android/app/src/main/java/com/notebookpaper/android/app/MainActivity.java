@@ -3,7 +3,11 @@ package com.notebookpaper.android.app;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.view.View;
@@ -11,18 +15,40 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.notebookpaper.android.NotebookPaperGenerator;
 import android.util.SparseArray;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class MainActivity extends AppCompatActivity {
+
+    // Interactive editing uses a lower resolution than save/share so each
+    // keystroke is cheap; the high-res render happens only on Save.
+    private static final float WORKING_DPI = 150f;
+    private static final float SAVE_DPI = 300f;
+    private static final float MM_PER_INCH = 25.4f;
 
     private ZoomableImageView mPaperImage;
     private EditText mLineEdit;
+    private ProgressBar mProgressBar;
     private final SparseArray<String> mLineTexts = new SparseArray<>();
     private int mEditingLineIndex = -1;
+
+    // Cached blank paper (base + texture + lines + holes), regenerated only
+    // when the working size changes. Text is drawn onto a copy of this.
+    private Bitmap mBlankPaper;
+    private int mBlankWidth;
+    private int mBlankHeight;
+
+    private final ExecutorService mExecutor = Executors.newSingleThreadExecutor();
+    private final Handler mMain = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,9 +57,10 @@ public class MainActivity extends AppCompatActivity {
 
         mPaperImage = findViewById(R.id.paperImage);
         mLineEdit = findViewById(R.id.lineEdit);
+        mProgressBar = findViewById(R.id.progress);
 
-        // Generate the paper once the view has been laid out, so its
-        // dimensions are known and the bitmap can be sized to the view.
+        // Generate the paper on a background thread at a fixed working
+        // resolution (not tied to the view size), so editing stays fluid.
         mPaperImage.post(this::generatePaper);
 
         // Tap a ruled line to edit text directly on that line, anywhere on
@@ -85,8 +112,12 @@ public class MainActivity extends AppCompatActivity {
         }
         int width = Math.max(1, mPaperImage.getWidth());
         int height = Math.max(1, mPaperImage.getHeight());
-        int topMargin = NotebookPaperGenerator.topMarginPx(height);
-        int spacing = NotebookPaperGenerator.lineSpacingPx(height);
+        // The tap lands in bitmap space (working resolution), so compute the
+        // ruled-line geometry from the paper bitmap, not the view size.
+        Bitmap paper = mPaperImage.getPaperBitmap();
+        int bmHeight = paper != null ? paper.getHeight() : height;
+        int topMargin = NotebookPaperGenerator.topMarginPx(bmHeight);
+        int spacing = NotebookPaperGenerator.lineSpacingPx(bmHeight);
         if (bitmapY < topMargin) return;
         int lineIndex = Math.round((bitmapY - topMargin) / (float) spacing);
         if (lineIndex < 0) return;
@@ -123,10 +154,70 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void generatePaper() {
-        int width = Math.max(1, mPaperImage.getWidth());
-        int height = Math.max(1, mPaperImage.getHeight());
-        mPaperImage.setPaperImage(NotebookPaperGenerator.generate(
-                this, width, height, NotebookPaperGenerator.DEFAULT_BUCKLE_COUNT, mLineTexts));
+        showLoading(true);
+        mExecutor.execute(() -> {
+            Bitmap result = generateWorkingPaper();
+            mMain.post(() -> {
+                mPaperImage.setPaperImage(result); // recycles the old bitmap
+                showLoading(false);
+            });
+        });
+    }
+
+    /**
+     * Draws the current text onto a copy of the cached blank paper at the
+     * working resolution. The blank paper itself is regenerated only when the
+     * working size changes.
+     */
+    private Bitmap generateWorkingPaper() {
+        int w = widthPxForDpi(WORKING_DPI);
+        int h = heightPxForDpi(WORKING_DPI);
+        if (mBlankPaper == null || mBlankWidth != w || mBlankHeight != h) {
+            if (mBlankPaper != null && !mBlankPaper.isRecycled()) {
+                mBlankPaper.recycle();
+            }
+            mBlankPaper = NotebookPaperGenerator.generateBlankPaper(w, h,
+                    NotebookPaperGenerator.DEFAULT_BUCKLE_COUNT);
+            mBlankWidth = w;
+            mBlankHeight = h;
+        }
+
+        // Text is drawn on a mutable copy so the cached blank paper stays pristine.
+        Bitmap working = mBlankPaper.copy(Bitmap.Config.ARGB_8888, true);
+        Canvas canvas = new Canvas(working);
+        Paint paint = new Paint();
+        paint.setAntiAlias(true);
+
+        float sx = w / NotebookPaperGenerator.B5_WIDTH_MM;
+        float sy = h / NotebookPaperGenerator.B5_HEIGHT_MM;
+        int topMarginPx = Math.round(NotebookPaperGenerator.TOP_MARGIN_MM * sy);
+        int lineSpacingPx = Math.round(NotebookPaperGenerator.LINE_SPACING_MM * sy);
+
+        NotebookPaperGenerator.drawTextOnPaper(canvas, paint, this, w, h,
+                topMarginPx, lineSpacingPx, sx, sy, typedLines());
+        return working;
+    }
+
+    private List<NotebookPaperGenerator.TypedLine> typedLines() {
+        List<NotebookPaperGenerator.TypedLine> lines = new ArrayList<>(mLineTexts.size());
+        for (int i = 0; i < mLineTexts.size(); i++) {
+            lines.add(new NotebookPaperGenerator.TypedLine(mLineTexts.keyAt(i),
+                    mLineTexts.valueAt(i)));
+        }
+        return lines;
+    }
+
+    private int widthPxForDpi(float dpi) {
+        return Math.round((NotebookPaperGenerator.B5_WIDTH_MM / MM_PER_INCH) * dpi);
+    }
+
+    private int heightPxForDpi(float dpi) {
+        return Math.round((NotebookPaperGenerator.B5_HEIGHT_MM / MM_PER_INCH) * dpi);
+    }
+
+    private void showLoading(boolean loading) {
+        mProgressBar.setVisibility(loading ? View.VISIBLE : View.GONE);
+        mPaperImage.setVisibility(loading ? View.INVISIBLE : View.VISIBLE);
     }
 
     /**
@@ -138,13 +229,37 @@ public class MainActivity extends AppCompatActivity {
      * MediaStore.createWriteRequest if Google removes it or a chooser UI is wanted.
      */
     private void saveToGallery() {
-        Bitmap bitmap = mPaperImage.getPaperBitmap();
-        if (bitmap == null) return;
-        String uri = MediaStore.Images.Media.insertImage(
-                getContentResolver(), bitmap, "Notebook Paper", "Generated notebook paper");
-        Toast.makeText(this,
-                uri != null ? R.string.msg_saved : R.string.msg_save_failed,
-                Toast.LENGTH_SHORT).show();
+        showLoading(true);
+        mExecutor.execute(() -> {
+            int w = widthPxForDpi(SAVE_DPI);
+            int h = heightPxForDpi(SAVE_DPI);
+            Bitmap highRes = NotebookPaperGenerator.generate(this, w, h,
+                    NotebookPaperGenerator.DEFAULT_BUCKLE_COUNT, typedLines());
+            String uri = MediaStore.Images.Media.insertImage(
+                    getContentResolver(), highRes, "Notebook Paper",
+                    "Generated notebook paper");
+            highRes.recycle();
+            mMain.post(() -> {
+                showLoading(false);
+                Toast.makeText(this,
+                        uri != null ? R.string.msg_saved : R.string.msg_save_failed,
+                        Toast.LENGTH_SHORT).show();
+            });
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        mExecutor.shutdownNow();
+        if (mBlankPaper != null && !mBlankPaper.isRecycled()) {
+            mBlankPaper.recycle();
+            mBlankPaper = null;
+        }
+        Bitmap current = mPaperImage.getPaperBitmap();
+        if (current != null && !current.isRecycled() && current != mBlankPaper) {
+            current.recycle();
+        }
+        super.onDestroy();
     }
 
     private void toggleZoom() {

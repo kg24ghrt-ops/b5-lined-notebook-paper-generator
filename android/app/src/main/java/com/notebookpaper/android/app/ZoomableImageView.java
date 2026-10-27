@@ -141,6 +141,9 @@ public class ZoomableImageView extends ImageView {
     }
 
     public void setPaperImage(android.graphics.Bitmap bitmap) {
+        if (mBitmap != null && !mBitmap.isRecycled() && mBitmap != bitmap) {
+            mBitmap.recycle();
+        }
         mBitmap = bitmap;
         setImageBitmap(bitmap);
         mMatrix.reset();
