@@ -22,7 +22,6 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.FrameLayout;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -62,6 +61,19 @@ public class MainActivity extends AppCompatActivity {
     private static final int EDIT_DEBOUNCE_MS = 200;
     private final Handler mEditHandler = new Handler(Looper.getMainLooper());
     private Runnable mDebounceRender;
+
+    private static final int CURSOR_BLINK_MS = 520;
+    private final Handler mCursorHandler = new Handler(Looper.getMainLooper());
+    private final Runnable mCursorBlink = new Runnable() {
+        @Override
+        public void run() {
+            if (mEditingLineIndex < 0) return;
+            mCursorVisible = !mCursorVisible;
+            renderPaper();
+            mCursorHandler.postDelayed(this, CURSOR_BLINK_MS);
+        }
+    };
+    private boolean mCursorVisible;
 
     // Cached blank paper (base + texture + lines + holes), regenerated only
     // when the working size changes. Text is drawn onto a copy of this.
@@ -154,7 +166,6 @@ public class MainActivity extends AppCompatActivity {
         if (mEditingLineIndex >= 0) {
             commitEdit();
         }
-        int width = Math.max(1, mPaperImage.getWidth());
         int height = Math.max(1, mPaperImage.getHeight());
         // The tap lands in bitmap space (working resolution), so compute the
         // ruled-line geometry from the paper bitmap, not the view size.
@@ -178,13 +189,26 @@ public class MainActivity extends AppCompatActivity {
         mLineEdit.setSelection(mLineEdit.getText().length());
         mLineEdit.requestFocus();
         renderPaper();
+        startCursorBlink();
 
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         mLineEdit.post(() -> imm.showSoftInput(mLineEdit, InputMethodManager.SHOW_IMPLICIT));
     }
 
+    private void startCursorBlink() {
+        mCursorVisible = true;
+        mCursorHandler.removeCallbacks(mCursorBlink);
+        mCursorHandler.post(mCursorBlink);
+    }
+
+    private void stopCursorBlink() {
+        mCursorHandler.removeCallbacks(mCursorBlink);
+        mCursorVisible = false;
+    }
+
     private void commitEdit() {
         if (mEditingLineIndex < 0) return;
+        stopCursorBlink();
         mEditingLineIndex = -1;
         mLineEdit.setText("");
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -204,6 +228,7 @@ public class MainActivity extends AppCompatActivity {
         mLineTexts.clear();
         mEditingLineIndex = -1;
         mLineEdit.setText("");
+        stopCursorBlink();
         scheduleDebouncedRender();
     }
 
@@ -211,7 +236,7 @@ public class MainActivity extends AppCompatActivity {
         showLoading(true);
         List<NotebookPaperGenerator.TypedLine> lines = typedLinesCopy();
         mExecutor.execute(() -> {
-            Bitmap result = generateWorkingPaper(lines);
+            Bitmap result = generateWorkingPaper(lines, -1, -1, false);
             mMain.post(() -> {
                 mPaperImage.setPaperImage(result); // recycles the old bitmap
                 showLoading(false);
@@ -221,8 +246,21 @@ public class MainActivity extends AppCompatActivity {
 
     private void renderPaper() {
         List<NotebookPaperGenerator.TypedLine> lines = typedLinesCopy();
+        final int cursorLineIndex;
+        final int cursorOffset;
+        final boolean cursorVisible;
+        if (mEditingLineIndex >= 0) {
+            cursorLineIndex = mEditingLineIndex;
+            cursorOffset = Math.max(0, Math.min(mLineEdit.getSelectionStart(),
+                    mLineEdit.getText().length()));
+            cursorVisible = mCursorVisible;
+        } else {
+            cursorLineIndex = -1;
+            cursorOffset = -1;
+            cursorVisible = false;
+        }
         mExecutor.execute(() -> {
-            Bitmap result = generateWorkingPaper(lines);
+            Bitmap result = generateWorkingPaper(lines, cursorLineIndex, cursorOffset, cursorVisible);
             mMain.post(() -> mPaperImage.setPaperImage(result)); // recycles the old bitmap
         });
     }
@@ -237,7 +275,8 @@ public class MainActivity extends AppCompatActivity {
      * working resolution. The blank paper itself is regenerated only when the
      * working size changes.
      */
-    private Bitmap generateWorkingPaper(List<NotebookPaperGenerator.TypedLine> lines) {
+    private Bitmap generateWorkingPaper(List<NotebookPaperGenerator.TypedLine> lines,
+                                        int cursorLineIndex, int cursorOffset, boolean cursorVisible) {
         int w = widthPxForDpi(WORKING_DPI);
         int h = heightPxForDpi(WORKING_DPI);
         if (mBlankPaper == null || mBlankWidth != w || mBlankHeight != h) {
@@ -269,7 +308,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         NotebookPaperGenerator.drawTextOnPaper(canvas, paint, this, w, h,
-                topMarginPx, lineSpacingPx, sx, sy, lines);
+                topMarginPx, lineSpacingPx, sx, sy, lines,
+                cursorLineIndex, cursorOffset, cursorVisible);
         return working;
     }
 

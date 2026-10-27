@@ -186,12 +186,17 @@ public final class NotebookPaperGenerator {
      * @param sx          horizontal scale (px per mm)
      * @param sy          vertical scale (px per mm)
      * @param typedLines  text to draw (null or empty for none)
+     * @param cursorLineIndex  line index of the active text cursor (-1 for none)
+     * @param cursorOffset  codepoint offset of the cursor within that line's text (-1 for none)
+     * @param cursorVisible  whether the cursor is currently painted (blink phase)
      */
     public static void drawTextOnPaper(Canvas canvas, Paint paint, Context context, int w, int h,
                                         int topMarginPx, int lineSpacingPx, float sx, float sy,
-                                        List<TypedLine> typedLines) {
+                                        List<TypedLine> typedLines, int cursorLineIndex,
+                                        int cursorOffset, boolean cursorVisible) {
         if (typedLines == null || typedLines.isEmpty()) return;
-        drawTypedLines(canvas, paint, context, w, h, topMarginPx, lineSpacingPx, sx, sy, typedLines);
+        drawTypedLines(canvas, paint, context, w, h, topMarginPx, lineSpacingPx, sx, sy, typedLines,
+                cursorLineIndex, cursorOffset, cursorVisible);
     }
 
     /**
@@ -216,7 +221,8 @@ public final class NotebookPaperGenerator {
         int lineSpacingPx = Math.round(LINE_SPACING_MM * sy);
 
         if (typedLines != null && !typedLines.isEmpty()) {
-            drawTypedLines(canvas, paint, context, widthPx, heightPx, topMarginPx, lineSpacingPx, sx, sy, typedLines);
+            drawTypedLines(canvas, paint, context, widthPx, heightPx, topMarginPx, lineSpacingPx, sx, sy, typedLines,
+                    -1, -1, false);
         }
 
         return bitmap;
@@ -337,7 +343,8 @@ public final class NotebookPaperGenerator {
 
     private static void drawTypedLines(Canvas canvas, Paint paint, Context context, int w, int h,
                                         int topMarginPx, int lineSpacingPx, float sx, float sy,
-                                        List<TypedLine> typedLines) {
+                                        List<TypedLine> typedLines, int cursorLineIndex,
+                                        int cursorOffset, boolean cursorVisible) {
         Paint textPaint = new Paint();
         textPaint.setAntiAlias(true);
         textPaint.setSubpixelText(true);
@@ -347,9 +354,16 @@ public final class NotebookPaperGenerator {
 
         Paint.FontMetrics fm = textPaint.getFontMetrics();
         int descent = (int) Math.ceil(fm.descent);
+        float ascent = fm.ascent;
         Random rnd = new Random(42);
 
         float rightPad = 6f * sx;
+
+        Paint cursorPaint = null;
+        if (cursorVisible && cursorOffset >= 0 && cursorLineIndex >= 0) {
+            cursorPaint = new Paint();
+            cursorPaint.setColor(Color.argb(255, 30, 130, 210));
+        }
 
         // Lay out top to bottom. Each entry starts on its own ruled line, but if
         // the entry above wrapped onto it, it is pushed down instead of drawing
@@ -357,6 +371,7 @@ public final class NotebookPaperGenerator {
         List<TypedLine> ordered = new ArrayList<>(typedLines);
         Collections.sort(ordered, (l1, l2) -> Integer.compare(l1.lineIndex, l2.lineIndex));
         int nextFreeLine = 0;
+        boolean cursorDrawn = false;
 
         for (TypedLine tl : ordered) {
             if (tl.text == null || tl.text.isEmpty()) continue;
@@ -379,6 +394,15 @@ public final class NotebookPaperGenerator {
                         : startX;
 
                 drawHandwrittenText(canvas, textPaint, segment, x, baselineY, rnd, sx, sy);
+
+                if (!cursorDrawn && cursorPaint != null && tl.lineIndex == cursorLineIndex && s == 0) {
+                    int end = Math.max(0, Math.min(cursorOffset, segment.length()));
+                    float cursorX = x + textPaint.measureText(segment, 0, end);
+                    float cursorWidth = 2f * sx;
+                    canvas.drawRect(cursorX, baselineY + ascent, cursorX + cursorWidth,
+                            baselineY + descent, cursorPaint);
+                    cursorDrawn = true;
+                }
             }
             nextFreeLine = firstLine + wrapped.size();
         }
