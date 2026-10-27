@@ -56,6 +56,8 @@ public class MainActivity extends AppCompatActivity {
     private EditText mLineEdit;
     private ProgressBar mProgressBar;
     private final SparseArray<String> mLineTexts = new SparseArray<>();
+    private final SparseArray<NotebookPaperGenerator.HorizontalPosition> mLinePositions =
+            new SparseArray<>();
     private int mEditingLineIndex = -1;
 
     private static final int EDIT_DEBOUNCE_MS = 200;
@@ -183,6 +185,16 @@ public class MainActivity extends AppCompatActivity {
             while (para > 0 && mLineTexts.get(para) == null) para--;
             if (mLineTexts.get(para) != null) lineIndex = para;
         }
+
+        NotebookPaperGenerator.HorizontalPosition position = mLinePositions.get(lineIndex);
+        if (position == null && paper != null) {
+            float sx = paper.getWidth() / (float) NotebookPaperGenerator.B5_WIDTH_MM;
+            float marginLineX = NotebookPaperGenerator.LEFT_MARGIN_MM * sx;
+            position = bitmapX < marginLineX
+                    ? NotebookPaperGenerator.HorizontalPosition.LEFT_OF_MARGIN
+                    : NotebookPaperGenerator.HorizontalPosition.RIGHT_OF_MARGIN;
+            mLinePositions.put(lineIndex, position);
+        }
         mEditingLineIndex = lineIndex;
 
         mLineEdit.setText(TextUtils.isEmpty(mLineTexts.get(lineIndex)) ? "" : mLineTexts.get(lineIndex));
@@ -218,6 +230,7 @@ public class MainActivity extends AppCompatActivity {
     private void clearLine() {
         if (mEditingLineIndex >= 0) {
             mLineTexts.remove(mEditingLineIndex);
+            mLinePositions.remove(mEditingLineIndex);
             mLineEdit.setText("");
             commitEdit();
             scheduleDebouncedRender();
@@ -226,6 +239,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void clearAll() {
         mLineTexts.clear();
+        mLinePositions.clear();
         mEditingLineIndex = -1;
         mLineEdit.setText("");
         stopCursorBlink();
@@ -320,8 +334,11 @@ public class MainActivity extends AppCompatActivity {
     private List<NotebookPaperGenerator.TypedLine> typedLinesCopy() {
         List<NotebookPaperGenerator.TypedLine> lines = new ArrayList<>(mLineTexts.size());
         for (int i = 0; i < mLineTexts.size(); i++) {
-            lines.add(new NotebookPaperGenerator.TypedLine(mLineTexts.keyAt(i),
-                    mLineTexts.valueAt(i)));
+            int index = mLineTexts.keyAt(i);
+            lines.add(new NotebookPaperGenerator.TypedLine(index,
+                    mLineTexts.valueAt(i),
+                    mLinePositions.get(index,
+                            NotebookPaperGenerator.HorizontalPosition.RIGHT_OF_MARGIN)));
         }
         return lines;
     }

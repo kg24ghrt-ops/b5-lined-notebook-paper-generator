@@ -377,9 +377,14 @@ public final class NotebookPaperGenerator {
             if (tl.text == null || tl.text.isEmpty()) continue;
 
             float startX = textStartX(tl.position, w, sx);
-            float available = (tl.position == HorizontalPosition.SPAN_FULL)
-                    ? w - 2f * rightPad
-                    : w - startX - rightPad;
+            float available;
+            if (tl.position == HorizontalPosition.SPAN_FULL) {
+                available = w - 2f * rightPad;
+            } else if (tl.position == HorizontalPosition.LEFT_OF_MARGIN) {
+                available = (LEFT_MARGIN_MM * sx) - startX;
+            } else {
+                available = w - startX - rightPad;
+            }
 
             List<String> wrapped = wrapLines(textPaint, tl.text, Math.max(available, 1f));
             int firstLine = Math.max(tl.lineIndex, nextFreeLine);
