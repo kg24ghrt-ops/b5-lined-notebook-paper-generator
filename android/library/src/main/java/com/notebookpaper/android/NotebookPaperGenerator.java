@@ -10,6 +10,7 @@ import android.graphics.Shader;
 import android.util.SparseArray;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -341,7 +342,7 @@ public final class NotebookPaperGenerator {
         textPaint.setAntiAlias(true);
         textPaint.setSubpixelText(true);
         textPaint.setColor(Color.argb(220, 40, 40, 60));
-        textPaint.setTextSize(Math.max(12f * sx, lineSpacingPx * 0.6f));
+        textPaint.setTextSize(lineSpacingPx * 0.6f);
         textPaint.setTypeface(MyanmarSupport.resolveTypeface(context));
 
         Paint.FontMetrics fm = textPaint.getFontMetrics();
@@ -354,7 +355,7 @@ public final class NotebookPaperGenerator {
         // the entry above wrapped onto it, it is pushed down instead of drawing
         // over it, so no text overlaps or is lost.
         List<TypedLine> ordered = new ArrayList<>(typedLines);
-        java.util.Collections.sort(ordered, (l1, l2) -> Integer.compare(l1.lineIndex, l2.lineIndex));
+        Collections.sort(ordered, (l1, l2) -> Integer.compare(l1.lineIndex, l2.lineIndex));
         int nextFreeLine = 0;
 
         for (TypedLine tl : ordered) {
