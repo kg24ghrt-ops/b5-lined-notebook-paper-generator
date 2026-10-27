@@ -29,6 +29,7 @@ public class ZoomableImageView extends ImageView {
     private GestureDetector mGestureDetector;
     private OnDoubleTapListener mDoubleTapListener;
     private OnLineTapListener mLineTapListener;
+    private OnTransformListener mTransformListener;
 
     private final Matrix mInvertMatrix = new Matrix();
 
@@ -59,6 +60,15 @@ public class ZoomableImageView extends ImageView {
      */
     public void setOnLineTapListener(OnLineTapListener listener) {
         mLineTapListener = listener;
+    }
+
+    /**
+     * Set a listener invoked when the user begins transforming (pinch or drag)
+     * the paper. Callers can use this to hide overlays that are positioned in
+     * screen space and would drift during the transform.
+     */
+    public void setOnTransformListener(OnTransformListener listener) {
+        mTransformListener = listener;
     }
 
     /**
@@ -100,6 +110,9 @@ public class ZoomableImageView extends ImageView {
         if (!mScaleDetector.isInProgress()) {
             switch (ev.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
+                    if (mTransformListener != null) {
+                        mTransformListener.onTransformStarted();
+                    }
                     mLastTouchX = ev.getX();
                     mLastTouchY = ev.getY();
                     break;
@@ -195,6 +208,9 @@ public class ZoomableImageView extends ImageView {
     private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
         @Override
         public boolean onScale(ScaleGestureDetector detector) {
+            if (mTransformListener != null) {
+                mTransformListener.onTransformStarted();
+            }
             float factor = detector.getScaleFactor();
             float newScale = mScale * factor;
             if (newScale < MIN_SCALE) newScale = MIN_SCALE;
@@ -237,5 +253,12 @@ public class ZoomableImageView extends ImageView {
      */
     public interface OnLineTapListener {
         void onLineTap(float bitmapX, float bitmapY);
+    }
+
+    /**
+     * Callback invoked when the user begins pinching or dragging the paper.
+     */
+    public interface OnTransformListener {
+        void onTransformStarted();
     }
 }

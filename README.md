@@ -1,38 +1,36 @@
 # B5 Lined Notebook Paper Generator
 
-A Java program that generates realistic B5 lined notebook paper as a high-resolution PNG image.
+An Android app that generates realistic B5 lined notebook paper and lets you type on it, with full Myanmar script support (bundled font + grapheme-aware wrapping).
 
 ## Specifications
 - Paper size: B5 (176mm × 250mm)
-- Resolution: 300 DPI
-- Format: PNG
+- Working resolution: 150 DPI for fluid editing; 300 DPI on save
+- Output: PNG to the gallery (scoped storage, no storage permission needed)
 - Features:
-  - Light blue ruled lines (8mm spacing) with ink bleed
+  - Light blue ruled lines (8mm spacing) with subtle ink bleed
   - Red left margin line (20mm)
-  - Subtle ring binder holes
+  - Ring binder holes ("buckles")
   - Paper fiber texture and vignette
-
-## Usage
-
-### Local (if Java/Maven available)
-```bash
-mvn compile exec:java
-```
-The generated image will be saved to `output/notebook-paper-b5-lined.png`.
-
-### GitHub Actions (automatic)
-Push to `main` or manually trigger the workflow via "Actions > Generate Notebook Paper > Run workflow". The workflow will:
-1. Compile and run the Java program on Ubuntu with JDK 11
-2. Upload the PNG and jar as artifacts
-3. Build the Android app and upload the APK as an artifact
-
-## Output
-- Dimensions: ~2079 × ~2953 pixels at 300 DPI
-- File: `output/notebook-paper-b5-lined.png`
+  - Myanmar-aware text wrapping (grapheme-cluster boundaries; never splits a stack)
+  - Light and dark themes
+  - Notes persist across process death
 
 ## Android
-An Android library module (`android/library`) ports the generator to `Canvas`/`Bitmap`, and an app (`android/app`) consumes it. Build with:
+Build and install the debug APK:
 
 ```bash
 cd android && ./gradlew :app:assembleDebug
+adb install app/build/outputs/apk/debug/app-debug.apk
 ```
+
+CI builds the signed APK on every push to `main` via `.github/workflows/generate-paper.yml` (JDK 17, Android SDK 34).
+
+## Usage
+- Tap any ruled line to type directly on it (multi-line supported).
+- Use **Clear line** / **Clear all** from the bottom bar.
+- Pinch to zoom, drag to pan, double-tap to toggle fit/full size.
+- Tap **Save to Gallery** to export the current page as a high-resolution PNG.
+
+## Modules
+- `android/library` — pure static paper generator (`Canvas`/`Bitmap`), no Android UI dependencies.
+- `android/app` — the notebook UI: zoomable paper view, inline line editor, theme support, persistence.

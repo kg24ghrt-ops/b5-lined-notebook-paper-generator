@@ -1,10 +1,12 @@
 package com.notebookpaper.android.app;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -23,6 +25,13 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.notebookpaper.android.NotebookPaperGenerator;
 import android.util.SparseArray;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -35,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
     private static final float WORKING_DPI = 150f;
     private static final float SAVE_DPI = 300f;
     private static final float MM_PER_INCH = 25.4f;
+    private static final String NOTES_FILE = "notes.txt";
 
     private ZoomableImageView mPaperImage;
     private EditText mLineEdit;
@@ -62,6 +72,9 @@ public class MainActivity extends AppCompatActivity {
         mProgressBar = findViewById(R.id.progress);
         mLineHighlight = findViewById(R.id.lineHighlight);
 
+        // Restore any previously saved notes.
+        loadNotes();
+
         // Generate the paper on a background thread at a fixed working
         // resolution (not tied to the view size), so editing stays fluid.
         mPaperImage.post(this::generatePaper);
@@ -69,6 +82,10 @@ public class MainActivity extends AppCompatActivity {
         // Tap a ruled line to edit text directly on that line, anywhere on
         // the page (inside or outside the red margin line).
         mPaperImage.setOnLineTapListener((bitmapX, bitmapY) -> onPaperTapped(bitmapX, bitmapY));
+
+        // Hide the active-line highlight while the user pans or zooms; it is
+        // repositioned correctly on the next tap.
+        mPaperImage.setOnTransformListener(() -> mLineHighlight.setVisibility(View.GONE));
 
         // Double-tap toggles between fit-to-screen and full zoom.
         mPaperImage.setOnDoubleTapListener(this::toggleZoom);
@@ -149,8 +166,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void positionLineHighlight(int lineIndex) {
-        int width = Math.max(1, mPaperImage.getWidth());
-        int height = Math.max(1, mPaperImage.getHeight());
+        // The highlight sits on the paper bitmap (working resolution), so
+        // compute ruled-line geometry from the bitmap, not the view size.
+        Bitmap paper = mPaperImage.getPaperBitmap();
+        int height = paper != null ? paper.getHeight() : Math.max(1, mPaperImage.getHeight());
         int topMargin = NotebookPaperGenerator.topMarginPx(height);
         int spacing = NotebookPaperGenerator.lineSpacingPx(height);
         float lineY = topMargin + lineIndex * spacing;
@@ -180,6 +199,7 @@ public class MainActivity extends AppCompatActivity {
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(mLineEdit.getWindowToken(), 0);
         generatePaper();
+        saveNotes();
     }
 
     private void clearLine() {
@@ -197,6 +217,7 @@ public class MainActivity extends AppCompatActivity {
         mLineEdit.setVisibility(View.GONE);
         mLineHighlight.setVisibility(View.GONE);
         generatePaper();
+        saveNotes();
     }
 
     private void generatePaper() {
@@ -267,12 +288,45 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
+     * Persists typed lines to internal storage so they survive process death.
+     * Format: one line per entry, "index\\ttext" with newlines escaped as
+     * U+0001 (unit separator, very unlikely in user text).
+     */
+    private void loadNotes() {
+        File file = new File(getFilesDir(), NOTES_FILE);
+        if (!file.exists()) return;
+        try (BufferedReader r = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = r.readLine()) != null) {
+                int tab = line.indexOf('\t');
+                if (tab < 0) continue;
+                int index = Integer.parseInt(line.substring(0, tab));
+                String text = line.substring(tab + 1).replace("\u0001", "\n");
+                mLineTexts.put(index, text);
+            }
+        } catch (IOException | NumberFormatException ignored) {
+            // Corrupt or missing notes file: start fresh.
+        }
+    }
+
+    private void saveNotes() {
+        File file = new File(getFilesDir(), NOTES_FILE);
+        try (PrintWriter w = new PrintWriter(new FileWriter(file))) {
+            for (int i = 0; i < mLineTexts.size(); i++) {
+                int index = mLineTexts.keyAt(i);
+                String text = mLineTexts.valueAt(i);
+                if (text == null) continue;
+                w.println(index + "\t" + text.replace("\n", "\u0001"));
+            }
+        } catch (IOException ignored) {
+            // Best-effort persistence; notes are non-critical.
+        }
+    }
+
+    /**
      * Saves the generated paper to the MediaStore so it appears in the gallery.
-     * Uses MediaStore.insertImage, which writes through the scoped-storage
-     * provider and needs no storage permission on Android 11+ (minSdk 30).
-     * <p>
-     * shortcut: insertImage is deprecated since API 29, upgrade to
-     * MediaStore.createWriteRequest if Google removes it or a chooser UI is wanted.
+     * Writes through scoped storage using ContentValues (the non-deprecated
+     * replacement for insertImage), needs no storage permission on API 26+.
      */
     private void saveToGallery() {
         showLoading(true);
@@ -281,14 +335,26 @@ public class MainActivity extends AppCompatActivity {
             int h = heightPxForDpi(SAVE_DPI);
             Bitmap highRes = NotebookPaperGenerator.generate(this, w, h,
                     NotebookPaperGenerator.DEFAULT_BUCKLE_COUNT, typedLines());
-            String uri = MediaStore.Images.Media.insertImage(
-                    getContentResolver(), highRes, "Notebook Paper",
-                    "Generated notebook paper");
+            Uri uri = null;
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Images.Media.DISPLAY_NAME, "Notebook Paper.png");
+            values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+            Uri imageUri = getContentResolver().insert(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+            if (imageUri != null) {
+                try (OutputStream os = getContentResolver().openOutputStream(imageUri)) {
+                    if (os != null) highRes.compress(Bitmap.CompressFormat.PNG, 100, os);
+                    uri = imageUri;
+                } catch (IOException ignored) {
+                    uri = null;
+                }
+            }
             highRes.recycle();
+            final Uri finalUri = uri;
             mMain.post(() -> {
                 showLoading(false);
                 Toast.makeText(this,
-                        uri != null ? R.string.msg_saved : R.string.msg_save_failed,
+                        finalUri != null ? R.string.msg_saved : R.string.msg_save_failed,
                         Toast.LENGTH_SHORT).show();
             });
         });
