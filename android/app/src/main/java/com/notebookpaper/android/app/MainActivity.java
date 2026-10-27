@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.net.Uri;
 import android.os.Bundle;
@@ -259,6 +260,13 @@ public class MainActivity extends AppCompatActivity {
         float sy = h / NotebookPaperGenerator.B5_HEIGHT_MM;
         int topMarginPx = Math.round(NotebookPaperGenerator.TOP_MARGIN_MM * sy);
         int lineSpacingPx = Math.round(NotebookPaperGenerator.LINE_SPACING_MM * sy);
+
+        if (mEditingLineIndex >= 0) {
+            int marginLeftPx = Math.round(NotebookPaperGenerator.LEFT_MARGIN_MM * sx);
+            paint.setColor(Color.argb(70, 30, 130, 210));
+            float highlightY = topMarginPx + mEditingLineIndex * lineSpacingPx;
+            canvas.drawRect(marginLeftPx, highlightY, w, highlightY + lineSpacingPx, paint);
+        }
 
         NotebookPaperGenerator.drawTextOnPaper(canvas, paint, this, w, h,
                 topMarginPx, lineSpacingPx, sx, sy, lines);
