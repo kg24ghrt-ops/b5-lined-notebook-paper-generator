@@ -12,6 +12,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
 import android.text.TextUtils;
+import android.text.TextWatcher;
+import android.text.Editable;
+import android.util.SparseArray;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
@@ -26,7 +29,6 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
 import com.notebookpaper.android.NotebookPaperGenerator;
-import android.util.SparseArray;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -53,9 +55,12 @@ public class MainActivity extends AppCompatActivity {
     private ZoomableImageView mPaperImage;
     private EditText mLineEdit;
     private ProgressBar mProgressBar;
-    private View mLineHighlight;
     private final SparseArray<String> mLineTexts = new SparseArray<>();
     private int mEditingLineIndex = -1;
+
+    private static final int EDIT_DEBOUNCE_MS = 200;
+    private final Handler mEditHandler = new Handler(Looper.getMainLooper());
+    private Runnable mDebounceRender;
 
     // Cached blank paper (base + texture + lines + holes), regenerated only
     // when the working size changes. Text is drawn onto a copy of this.
@@ -74,7 +79,6 @@ public class MainActivity extends AppCompatActivity {
         mPaperImage = findViewById(R.id.paperImage);
         mLineEdit = findViewById(R.id.lineEdit);
         mProgressBar = findViewById(R.id.progress);
-        mLineHighlight = findViewById(R.id.lineHighlight);
 
         // Restore any previously saved notes.
         loadNotes();
@@ -86,10 +90,6 @@ public class MainActivity extends AppCompatActivity {
         // Tap a ruled line to edit text directly on that line, anywhere on
         // the page (inside or outside the red margin line).
         mPaperImage.setOnLineTapListener((bitmapX, bitmapY) -> onPaperTapped(bitmapX, bitmapY));
-
-        // Hide the active-line highlight while the user pans or zooms; it is
-        // repositioned correctly on the next tap.
-        mPaperImage.setOnTransformListener(() -> mLineHighlight.setVisibility(View.GONE));
 
         // Double-tap toggles between fit-to-screen and full zoom.
         mPaperImage.setOnDoubleTapListener(this::toggleZoom);
@@ -112,6 +112,33 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        mLineEdit.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (mEditingLineIndex < 0) return;
+                String text = s.toString();
+                if (TextUtils.isEmpty(text)) {
+                    mLineTexts.remove(mEditingLineIndex);
+                } else {
+                    mLineTexts.put(mEditingLineIndex, text);
+                }
+                scheduleDebouncedRender();
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
+        });
+
+        mDebounceRender = () -> {
+            saveNotes();
+            renderPaper();
+        };
+
                 Button saveButton = findViewById(R.id.saveButton);
         saveButton.setOnClickListener(v -> saveToGallery());
 
@@ -120,17 +147,10 @@ public class MainActivity extends AppCompatActivity {
 
         Button overflowButton = findViewById(R.id.overflowButton);
         overflowButton.setOnClickListener(v -> showOverflowMenu(v));
-
-        mPaperImage.setOnTransformListener(() -> mLineHighlight.setVisibility(View.GONE));
-        mPaperImage.setOnTransformEndListener(() -> {
-            if (mEditingLineIndex >= 0) {
-                positionLineHighlight(mEditingLineIndex);
-            }
-        });
     }
 
     private void onPaperTapped(float bitmapX, float bitmapY) {
-        if (mLineEdit.getVisibility() == View.VISIBLE) {
+        if (mEditingLineIndex >= 0) {
             commitEdit();
         }
         int width = Math.max(1, mPaperImage.getWidth());
@@ -153,57 +173,21 @@ public class MainActivity extends AppCompatActivity {
         }
         mEditingLineIndex = lineIndex;
 
-        // Position the inline editor centered on the tapped ruled line in screen
-        // space so the text sits on the ruled line.
-        float[] screenPt = new float[2];
-        float lineY = topMargin + lineIndex * spacing;
-        mPaperImage.mapBitmapToScreen(0f, lineY, screenPt);
         mLineEdit.setText(TextUtils.isEmpty(mLineTexts.get(lineIndex)) ? "" : mLineTexts.get(lineIndex));
         mLineEdit.setSelection(mLineEdit.getText().length());
-        mLineEdit.setY(screenPt[1] - mLineEdit.getLineHeight() / 2f);
-        mLineEdit.setVisibility(View.VISIBLE);
         mLineEdit.requestFocus();
-        positionLineHighlight(lineIndex);
+        renderPaper();
 
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.showSoftInput(mLineEdit, InputMethodManager.SHOW_IMPLICIT);
     }
 
-    private void positionLineHighlight(int lineIndex) {
-        // The highlight sits on the paper bitmap (working resolution), so
-        // compute ruled-line geometry from the bitmap, not the view size.
-        Bitmap paper = mPaperImage.getPaperBitmap();
-        int height = paper != null ? paper.getHeight() : Math.max(1, mPaperImage.getHeight());
-        int topMargin = NotebookPaperGenerator.topMarginPx(height);
-        int spacing = NotebookPaperGenerator.lineSpacingPx(height);
-        float lineY = topMargin + lineIndex * spacing;
-        float[] pt1 = new float[2];
-        float[] pt2 = new float[2];
-        mPaperImage.mapBitmapToScreen(0f, lineY, pt1);
-        mPaperImage.mapBitmapToScreen(0f, lineY + spacing, pt2);
-        float screenLineHeight = pt2[1] - pt1[1];
-        float screenTop = pt1[1] - screenLineHeight * 0.25f; // center band on the ruled line
-        mLineHighlight.setY(screenTop);
-        mLineHighlight.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, Math.round(screenLineHeight)));
-        mLineHighlight.setVisibility(View.VISIBLE);
-    }
-
     private void commitEdit() {
         if (mEditingLineIndex < 0) return;
-        String text = mLineEdit.getText().toString();
-        if (TextUtils.isEmpty(text)) {
-            mLineTexts.remove(mEditingLineIndex);
-        } else {
-            mLineTexts.put(mEditingLineIndex, text);
-        }
         mEditingLineIndex = -1;
-        mLineEdit.setVisibility(View.GONE);
-        mLineHighlight.setVisibility(View.GONE);
+        mLineEdit.setText("");
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(mLineEdit.getWindowToken(), 0);
-        generatePaper();
-        saveNotes();
     }
 
     private void clearLine() {
@@ -211,6 +195,7 @@ public class MainActivity extends AppCompatActivity {
             mLineTexts.remove(mEditingLineIndex);
             mLineEdit.setText("");
             commitEdit();
+            scheduleDebouncedRender();
         }
     }
 
@@ -218,10 +203,7 @@ public class MainActivity extends AppCompatActivity {
         mLineTexts.clear();
         mEditingLineIndex = -1;
         mLineEdit.setText("");
-        mLineEdit.setVisibility(View.GONE);
-        mLineHighlight.setVisibility(View.GONE);
-        generatePaper();
-        saveNotes();
+        scheduleDebouncedRender();
     }
 
     private void generatePaper() {
@@ -234,6 +216,19 @@ public class MainActivity extends AppCompatActivity {
                 showLoading(false);
             });
         });
+    }
+
+    private void renderPaper() {
+        List<NotebookPaperGenerator.TypedLine> lines = typedLinesCopy();
+        mExecutor.execute(() -> {
+            Bitmap result = generateWorkingPaper(lines);
+            mMain.post(() -> mPaperImage.setPaperImage(result)); // recycles the old bitmap
+        });
+    }
+
+    private void scheduleDebouncedRender() {
+        mEditHandler.removeCallbacks(mDebounceRender);
+        mEditHandler.postDelayed(mDebounceRender, EDIT_DEBOUNCE_MS);
     }
 
     /**

@@ -36,28 +36,18 @@
 
         <EditText
             android:id="@+id/lineEdit"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="@dimen/touch_target_min"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="invisible"
+            android:focusableInTouchMode="true"
+            android:focusable="true"
             android:maxLines="4"
-            android:visibility="gone"
-            android:background="@drawable/editor_background"
             android:textColor="@color/color_on_surface"
             android:textColorHint="@color/color_muted_foreground"
             android:hint="Type on the line"
             android:contentDescription="@string/edit_line_label"
-            android:gravity="top|start"
-            android:padding="@dimen/editor_padding"
             android:inputType="textMultiLine"
             android:imeOptions="flagNoExtractUi" />
-
-        <View
-            android:id="@+id/lineHighlight"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/line_highlight_height"
-        android:background="@color/color_accent"
-        android:alpha="0.22"
-            android:visibility="gone" />
 
         <ProgressBar
             android:id="@+id/progress"
