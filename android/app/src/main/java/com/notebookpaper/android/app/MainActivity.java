@@ -179,7 +179,7 @@ public class MainActivity extends AppCompatActivity {
         renderPaper();
 
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-        imm.showSoftInput(mLineEdit, InputMethodManager.SHOW_IMPLICIT);
+        mLineEdit.post(() -> imm.showSoftInput(mLineEdit, InputMethodManager.SHOW_IMPLICIT));
     }
 
     private void commitEdit() {

@@ -36,9 +36,10 @@
 
         <EditText
             android:id="@+id/lineEdit"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:visibility="invisible"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="visible"
+            android:alpha="0"
             android:focusableInTouchMode="true"
             android:focusable="true"
             android:maxLines="4"
