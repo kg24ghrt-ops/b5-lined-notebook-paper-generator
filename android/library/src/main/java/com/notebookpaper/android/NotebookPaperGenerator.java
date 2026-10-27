@@ -1,6 +1,9 @@
 package com.notebookpaper.android;
 
 import android.content.Context;
+import android.graphicspackage com.notebookpaper.android;
+
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -256,6 +259,214 @@ public final class NotebookPaperGenerator {
         paint.setColor(Color.argb(200, 90, 105, 175));
         paint.setStrokeWidth(1.0f);
         for (int i = 0; i < lineCount; i++) {
+            float y = topMarginPx + i * lineSpacingPx + (rnd.nextInt(3) - 1);
+            canvas.drawLine(0, y, w, y, paint);
+        }
+    }
+
+    private static void drawHeaderLine(Canvas canvas, Paint paint, int w, int topMarginPx, float sy) {
+        int headerLineY = topMarginPx - Math.round(HEADER_GAP_MM * sy);
+        paint.setColor(Color.argb(180, 150, 150, 165));
+        paint.setStrokeWidth(2.0f);
+        canvas.drawLine(0, headerLineY, w, headerLineY, paint);
+    }
+
+    private static void drawMarginLine(Canvas canvas, Paint paint, int h, float sx) {
+        int marginLeftPx = Math.round(LEFT_MARGIN_MM * sx);
+        paint.setColor(Color.argb(170, 210, 90, 85));
+        paint.setStrokeWidth(3.0f);
+        canvas.drawLine(marginLeftPx, 0, marginLeftPx, h, paint);
+        paint.setColor(Color.argb(220, 180, 55, 50));
+        paint.setStrokeWidth(1.0f);
+        canvas.drawLine(marginLeftPx, 0, marginLeftPx, h, paint);
+    }
+
+    private static void drawTypedLines(Canvas canvas, Paint paint, Context context, int w, int h,
+                                        int topMarginPx, int lineSpacingPx, float sx, float sy,
+                                        List<TypedLine> typedLines) {
+        Paint textPaint = new Paint();
+        textPaint.setAntiAlias(true);
+        textPaint.setSubpixelText(true);
+        textPaint.setColor(Color.argb(220, 40, 40, 60));
+        textPaint.setTextSize(Math.max(12f, lineSpacingPx * 0.6f));
+        textPaint.setTypeface(MyanmarSupport.resolveTypeface(context));
+
+        Paint.FontMetrics fm = textPaint.getFontMetrics();
+        int descent = (int) Math.ceil(fm.descent);
+        Random rnd = new Random(42);
+
+        float rightPad = 6f;
+
+        // Lay out top to bottom. Each entry starts on its own ruled line, but if
+        // the entry above wrapped onto it, it is pushed down instead of drawing
+        // over it, so no text overlaps or is lost.
+        List<TypedLine> ordered = new ArrayList<>(typedLines);
+        java.util.Collections.sort(ordered, (l1, l2) -> Integer.compare(l1.lineIndex, l2.lineIndex));
+        int nextFreeLine = 0;
+
+        for (TypedLine tl : ordered) {
+            if (tl.text == null || tl.text.isEmpty()) continue;
+
+            float startX = textStartX(tl.position, w, sx);
+            float available = (tl.position == HorizontalPosition.SPAN_FULL)
+                    ? w - 2f * rightPad
+                    : w - startX - rightPad;
+
+            List<String> wrapped = wrapLines(textPaint, tl.text, Math.max(available, 1f));
+            int firstLine = Math.max(tl.lineIndex, nextFreeLine);
+            for (int s = 0; s < wrapped.size(); s++) {
+                String segment = wrapped.get(s);
+                float lineY = topMarginPx + (firstLine + s) * lineSpacingPx;
+                if (lineY > h) break; // off the bottom of the page
+                float baselineY = lineY - descent * 0.6f;
+
+                float x = (tl.position == HorizontalPosition.SPAN_FULL)
+                        ? Math.max(rightPad, (w - textPaint.measureText(segment)) / 2f)
+                        : startX;
+
+                drawHandwrittenText(canvas, textPaint, segment, x, baselineY, rnd);
+            }
+            nextFreeLine = firstLine + wrapped.size();
+        }
+    }
+
+    /** Left edge of text for non-centered positions. */
+    private static float textStartX(HorizontalPosition position, int w, float sx) {
+        if (position == HorizontalPosition.LEFT_OF_MARGIN) return 3f * sx;
+        return Math.round(LEFT_MARGIN_MM * sx) + 4f * sx; // RIGHT_OF_MARGIN (default)
+    }
+
+    private static List<String> wrapLines(Paint paint, String text, float maxWidth) {
+        List<String> clusters = MyanmarSupport.graphemeClusters(text);
+        float[] widths = new float[clusters.size()];
+        for (int i = 0; i < widths.length; i++) {
+            widths[i] = paint.measureText(clusters.get(i));
+        }
+        return wrapClusters(clusters, widths, maxWidth);
+    }
+
+    /**
+     * Greedy line wrapping over grapheme clusters. Lines break only where
+     * {@link #breakAllowedBefore} says so (after a space, or between Myanmar
+     * syllables). A single word wider than the page is hard-broken at a cluster
+     * boundary as a last resort. Spaces never start a wrapped line and hang
+     * past the margin instead of forcing a break.
+     */
+    static List<String> wrapClusters(List<String> clusters, float[] widths, float maxWidth) {
+        List<String> lines = new ArrayList<>();
+        int n = clusters.size();
+        int start = 0;
+        while (start < n) {
+            if (!lines.isEmpty()) {
+                while (start < n && isBlank(clusters.get(start))) start++;
+            }
+            if (start >= n) break;
+
+            float width = 0f;
+            int lastBreak = -1;
+            int i = start;
+            int end = n;
+            for (; i < n; i++) {
+                if (i > start && breakAllowedBefore(clusters.get(i - 1), clusters.get(i))) {
+                    lastBreak = i;
+                }
+                if (i > start && !isBlank(clusters.get(i)) && width + widths[i] > maxWidth) {
+                    end = lastBreak > start ? lastBreak : i;
+                    break;
+                }
+                width += widths[i];
+            }
+
+            int last = end;
+            while (last > start && isBlank(clusters.get(last - 1))) last--;
+            StringBuilder line = new StringBuilder();
+            for (int k = start; k < last; k++) line.append(clusters.get(k));
+            lines.add(line.toString());
+            start = end;
+        }
+        return lines;
+    }
+
+    private static boolean isBlank(String s) {
+        return s.trim().isEmpty();
+    }
+
+    private static boolean isMyanmarCp(int cp) {
+        return cp >= 0x1000 && cp <= 0x109F;
+    }
+
+    /**
+     * Whether a line may break between two adjacent clusters. Latin text breaks
+     * only after a space. Myanmar breaks between syllables, but never before a
+     * final consonant (a cluster carrying asat U+103A) or before the section
+     * marks U+104A/U+104B.
+     */
+    private static boolean breakAllowedBefore(String prev, String cur) {
+        if (isBlank(prev)) return true;
+        if (isBlank(cur)) return false;
+        int p = prev.codePointAt(0);
+        int c = cur.codePointAt(0);
+        if (!isMyanmarCp(p) || !isMyanmarCp(c)) return false;
+        if (c == 0x104A || c == 0x104B) return false;
+        return cur.indexOf('\u103A') < 0;
+    }
+
+    private static void drawHandwrittenText(Canvas canvas, Paint textPaint, String text, float x, float baselineY, Random rnd) {
+        List<String> clusters = MyanmarSupport.graphemeClusters(text);
+        float charX = x;
+
+        for (String cluster : clusters) {
+            if (cluster.isEmpty()) continue;
+
+            boolean isSpace = cluster.trim().isEmpty();
+            if (isSpace) {
+                charX += textPaint.measureText(cluster);
+                continue;
+            }
+
+            float jitterX = (rnd.nextFloat() - 0.5f) * 0.3f;
+            float jitterY = (rnd.nextFloat() - 0.5f) * 0.2f;
+            float rotation = (rnd.nextFloat() - 0.5f) * 0.005f;
+
+            int alphaVariation = rnd.nextInt(30) - 15;
+            int alpha = Math.max(160, Math.min(240, 210 + alphaVariation));
+            textPaint.setAlpha(alpha);
+
+            canvas.save();
+            canvas.translate(charX + jitterX, baselineY + jitterY);
+            canvas.rotate(rotation * 57.29578f); // radians to degrees
+            canvas.drawText(cluster, 0, 0, textPaint);
+            canvas.restore();
+
+            charX += textPaint.measureText(cluster) + (rnd.nextFloat() - 0.5f) * 0.5f;
+        }
+    }
+
+    private static void drawBindingHoles(Canvas canvas, Paint paint, int w, int h, int buckleCount) {
+        int holeX = Math.round(HOLE_X_MM * (w / B5_WIDTH_MM));
+        int holeRadius = Math.round(HOLE_RADIUS_MM * (w / B5_WIDTH_MM));
+        int firstHoleY = Math.round(FIRST_HOLE_Y_MM * (h / B5_HEIGHT_MM));
+        int lastHoleY = Math.round(LAST_HOLE_Y_MM * (h / B5_HEIGHT_MM));
+        if (buckleCount <= 1) {
+            addBuckle(canvas, paint, holeX, firstHoleY, holeRadius);
+        } else {
+            float span = lastHoleY - firstHoleY;
+            for (int i = 0; i < buckleCount; i++) {
+                float fraction = (buckleCount == 1) ? 0f : (i / (float) (buckleCount - 1));
+                int holeY = Math.round(firstHoleY + span * fraction);
+                addBuckle(canvas, paint, holeX, holeY, holeRadius);
+            }
+        }
+    }
+
+    private static void addBuckle(Canvas canvas, Paint paint, int cx, int cy, int radius) {
+        paint.setColor(Color.argb(255, 150, 150, 150));
+        canvas.drawCircle(cx, cy, radius, paint);
+        paint.setColor(Color.argb(255, 100, 100, 100));
+        paint.setStrokeWidth(1.5f);
+        canvas.drawCircle(cx, cy, radius, paint);
+    }
+}for (int i = 0; i < lineCount; i++) {
             float y = topMarginPx + i * lineSpacingPx + (rnd.nextInt(3) - 1);
             canvas.drawLine(0, y, w, y, paint);
         }
