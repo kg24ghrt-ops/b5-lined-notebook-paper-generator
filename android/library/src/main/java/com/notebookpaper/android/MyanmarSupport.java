@@ -72,9 +72,11 @@ public final class MyanmarSupport {
      * Splits {@code text} into grapheme clusters so complex-script stacks
      * (e.g. Myanmar) are never broken apart during rendering.
      * <p>
-     * ICU breaks after U+1039 (virama), so a cluster is merged into the
-     * previous one when the previous ends with the virama, keeping stacks like
-     * ဗုဒ္ဓ whole.
+     * ICU's character instance is not enough for Myanmar: it splits U+102B/U+102C
+     * (aa/tall aa) away from their syllable, and breaks after U+1039 (virama).
+     * A lone combining mark is drawn with a dotted circle, so after ICU
+     * segmentation, any cluster that starts with a Myanmar combining mark is
+     * merged into the previous cluster, and so is the consonant following a virama.
      */
     public static List<String> graphemeClusters(String text) {
         List<String> clusters = new ArrayList<>();
@@ -84,9 +86,11 @@ public final class MyanmarSupport {
         for (int end = bi.next(); end != BreakIterator.DONE; start = end, end = bi.next()) {
             String cluster = text.substring(start, end);
             int last = clusters.size() - 1;
-            boolean merge = !cluster.isEmpty() && last >= 0
-                    && clusters.get(last).endsWith(MYANMAR_VIRAMA)
-                    && !cluster.trim().isEmpty();
+            boolean merge = last >= 0
+                    && !cluster.trim().isEmpty()
+                    && !clusters.get(last).trim().isEmpty()
+                    && (clusters.get(last).endsWith(MYANMAR_VIRAMA)
+                        || isMyanmarCombiningMark(cluster.codePointAt(0)));
             if (merge) {
                 clusters.set(last, clusters.get(last) + cluster);
             } else {
@@ -94,5 +98,15 @@ public final class MyanmarSupport {
             }
         }
         return clusters;
+    }
+
+    /** True for Myanmar vowel signs, medials, tone marks, asat and virama. */
+    private static boolean isMyanmarCombiningMark(int cp) {
+        boolean inMyanmar = (cp >= 0x1000 && cp <= 0x109F)
+                || (cp >= 0xA9E0 && cp <= 0xA9FF)
+                || (cp >= 0xAA60 && cp <= 0xAA7F);
+        if (!inMyanmar) return false;
+        int type = Character.getType(cp);
+        return type == Character.NON_SPACING_MARK || type == Character.COMBINING_SPACING_MARK;
     }
 }
