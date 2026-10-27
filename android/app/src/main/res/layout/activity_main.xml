@@ -39,6 +39,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:minHeight="@dimen/touch_target_min"
+            android:maxLines="4"
             android:visibility="gone"
             android:background="@drawable/editor_background"
             android:textColor="@color/color_on_surface"
@@ -47,9 +48,16 @@
             android:contentDescription="@string/edit_line_label"
             android:gravity="top|start"
             android:padding="@dimen/editor_padding"
-            android:singleLine="true"
-            android:imeOptions="actionDone|flagNoExtractUi"
-            android:inputType="text" />
+            android:inputType="textMultiLine"
+            android:imeOptions="flagNoExtractUi" />
+
+        <View
+            android:id="@+id/lineHighlight"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/line_highlight_height"
+            android:background="@color/color_accent"
+            android:alpha="0.15"
+            android:visibility="gone" />
 
         <ProgressBar
             android:id="@+id/progress"
@@ -82,6 +90,22 @@
             android:layout_height="wrap_content"
             android:layout_marginEnd="@dimen/spacing_sm"
             android:text="@string/action_regenerate" />
+
+        <Button
+            android:id="@+id/clearLineButton"
+            style="?attr/buttonBarButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/spacing_sm"
+            android:text="@string/action_clear_line" />
+
+        <Button
+            android:id="@+id/clearAllButton"
+            style="?attr/buttonBarButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/spacing_sm"
+            android:text="@string/action_clear_all" />
 
         <Button
             android:id="@+id/resetButton"

@@ -8,6 +8,8 @@
     <string name="action_reset_zoom">Reset zoom</string>
     <string name="action_terms">Terms of Use</string>
     <string name="edit_line_label">Edit text on this ruled line</string>
+    <string name="action_clear_line">Clear line</string>
+    <string name="action_clear_all">Clear all</string>
     <string name="terms_of_use">Terms of Use
 
 This app generates notebook paper images for personal use.

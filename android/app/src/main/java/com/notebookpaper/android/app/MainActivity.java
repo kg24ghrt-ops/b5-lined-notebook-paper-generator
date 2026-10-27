@@ -15,6 +15,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -38,6 +39,7 @@ public class MainActivity extends AppCompatActivity {
     private ZoomableImageView mPaperImage;
     private EditText mLineEdit;
     private ProgressBar mProgressBar;
+    private View mLineHighlight;
     private final SparseArray<String> mLineTexts = new SparseArray<>();
     private int mEditingLineIndex = -1;
 
@@ -58,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
         mPaperImage = findViewById(R.id.paperImage);
         mLineEdit = findViewById(R.id.lineEdit);
         mProgressBar = findViewById(R.id.progress);
+        mLineHighlight = findViewById(R.id.lineHighlight);
 
         // Generate the paper on a background thread at a fixed working
         // resolution (not tied to the view size), so editing stays fluid.
@@ -97,6 +100,12 @@ public class MainActivity extends AppCompatActivity {
         Button resetButton = findViewById(R.id.resetButton);
         resetButton.setOnClickListener(v -> mPaperImage.zoomToCenter());
 
+        Button clearLineButton = findViewById(R.id.clearLineButton);
+        clearLineButton.setOnClickListener(v -> clearLine());
+
+        Button clearAllButton = findViewById(R.id.clearAllButton);
+        clearAllButton.setOnClickListener(v -> clearAll());
+
         Button termsButton = findViewById(R.id.termsButton);
         termsButton.setOnClickListener(v -> {
             startActivity(new Intent(this, TermsOfUseActivity.class));
@@ -133,9 +142,28 @@ public class MainActivity extends AppCompatActivity {
         mLineEdit.setY(screenPt[1] - mLineEdit.getLineHeight() / 2f);
         mLineEdit.setVisibility(View.VISIBLE);
         mLineEdit.requestFocus();
+        positionLineHighlight(lineIndex);
 
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.showSoftInput(mLineEdit, InputMethodManager.SHOW_IMPLICIT);
+    }
+
+    private void positionLineHighlight(int lineIndex) {
+        int width = Math.max(1, mPaperImage.getWidth());
+        int height = Math.max(1, mPaperImage.getHeight());
+        int topMargin = NotebookPaperGenerator.topMarginPx(height);
+        int spacing = NotebookPaperGenerator.lineSpacingPx(height);
+        float lineY = topMargin + lineIndex * spacing;
+        float[] pt1 = new float[2];
+        float[] pt2 = new float[2];
+        mPaperImage.mapBitmapToScreen(0f, lineY, pt1);
+        mPaperImage.mapBitmapToScreen(0f, lineY + spacing, pt2);
+        float screenLineHeight = pt2[1] - pt1[1];
+        float screenTop = pt1[1] - screenLineHeight * 0.25f; // center band on the ruled line
+        mLineHighlight.setY(screenTop);
+        mLineHighlight.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, Math.round(screenLineHeight)));
+        mLineHighlight.setVisibility(View.VISIBLE);
     }
 
     private void commitEdit() {
@@ -148,8 +176,26 @@ public class MainActivity extends AppCompatActivity {
         }
         mEditingLineIndex = -1;
         mLineEdit.setVisibility(View.GONE);
+        mLineHighlight.setVisibility(View.GONE);
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(mLineEdit.getWindowToken(), 0);
+        generatePaper();
+    }
+
+    private void clearLine() {
+        if (mEditingLineIndex >= 0) {
+            mLineTexts.remove(mEditingLineIndex);
+            mLineEdit.setText("");
+            commitEdit();
+        }
+    }
+
+    private void clearAll() {
+        mLineTexts.clear();
+        mEditingLineIndex = -1;
+        mLineEdit.setText("");
+        mLineEdit.setVisibility(View.GONE);
+        mLineHighlight.setVisibility(View.GONE);
         generatePaper();
     }
 
