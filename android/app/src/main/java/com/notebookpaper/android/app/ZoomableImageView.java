@@ -20,6 +20,8 @@ public class ZoomableImageView extends ImageView {
     private final float[] mTmp = new float[9];
 
     private android.graphics.Bitmap mBitmap;
+    private int mBitmapWidth;
+    private int mBitmapHeight;
     private float mBaseScale = 1.0f;
     private float mScale = 1.0f;
     private float mLastTouchX;
@@ -171,20 +173,26 @@ public class ZoomableImageView extends ImageView {
         }
         mBitmap = bitmap;
         setImageBitmap(bitmap);
-        mMatrix.reset();
         int w = getWidth();
         int h = getHeight();
         if (w <= 0 || h <= 0) {
             // Not laid out yet; recompute once the view has a size.
             return;
         }
-        mBaseScale = Math.min(w / (float) bitmap.getWidth(), h / (float) bitmap.getHeight());
-        mScale = mBaseScale;
-        mMatrix.postScale(mScale, mScale);
-        mMatrix.postTranslate(
-                (w - bitmap.getWidth() * mScale) / 2f,
-                (h - bitmap.getHeight() * mScale) / 2f);
-        setImageMatrix(mMatrix);
+        // Only reset the matrix on the first image or when dimensions change,
+        // so editing at a fixed working resolution preserves the user's zoom/pan.
+        if (mBitmapWidth != bitmap.getWidth() || mBitmapHeight != bitmap.getHeight()) {
+            mMatrix.reset();
+            mBaseScale = Math.min(w / (float) bitmap.getWidth(), h / (float) bitmap.getHeight());
+            mScale = mBaseScale;
+            mMatrix.postScale(mScale, mScale);
+            mMatrix.postTranslate(
+                    (w - bitmap.getWidth() * mScale) / 2f,
+                    (h - bitmap.getHeight() * mScale) / 2f);
+            setImageMatrix(mMatrix);
+            mBitmapWidth = bitmap.getWidth();
+            mBitmapHeight = bitmap.getHeight();
+        }
     }
 
     /**

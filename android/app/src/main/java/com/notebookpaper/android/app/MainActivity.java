@@ -144,6 +144,13 @@ public class MainActivity extends AppCompatActivity {
         if (bitmapY < topMargin) return;
         int lineIndex = Math.round((bitmapY - topMargin) / (float) spacing);
         if (lineIndex < 0) return;
+        // If the tapped line is a wrapped continuation with no text of its own,
+        // edit the nearest paragraph above it instead.
+        if (mLineTexts.get(lineIndex) == null) {
+            int para = lineIndex;
+            while (para > 0 && mLineTexts.get(para) == null) para--;
+            if (mLineTexts.get(para) != null) lineIndex = para;
+        }
         mEditingLineIndex = lineIndex;
 
         // Position the inline editor centered on the tapped ruled line in screen
@@ -219,8 +226,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void generatePaper() {
         showLoading(true);
+        List<NotebookPaperGenerator.TypedLine> lines = typedLinesCopy();
         mExecutor.execute(() -> {
-            Bitmap result = generateWorkingPaper();
+            Bitmap result = generateWorkingPaper(lines);
             mMain.post(() -> {
                 mPaperImage.setPaperImage(result); // recycles the old bitmap
                 showLoading(false);
@@ -233,7 +241,7 @@ public class MainActivity extends AppCompatActivity {
      * working resolution. The blank paper itself is regenerated only when the
      * working size changes.
      */
-    private Bitmap generateWorkingPaper() {
+    private Bitmap generateWorkingPaper(List<NotebookPaperGenerator.TypedLine> lines) {
         int w = widthPxForDpi(WORKING_DPI);
         int h = heightPxForDpi(WORKING_DPI);
         if (mBlankPaper == null || mBlankWidth != w || mBlankHeight != h) {
@@ -258,11 +266,15 @@ public class MainActivity extends AppCompatActivity {
         int lineSpacingPx = Math.round(NotebookPaperGenerator.LINE_SPACING_MM * sy);
 
         NotebookPaperGenerator.drawTextOnPaper(canvas, paint, this, w, h,
-                topMarginPx, lineSpacingPx, sx, sy, typedLines());
+                topMarginPx, lineSpacingPx, sx, sy, lines);
         return working;
     }
 
-    private List<NotebookPaperGenerator.TypedLine> typedLines() {
+    /**
+     * Returns a snapshot of the current typed lines, copied on the main thread
+     * so background rendering never reads the live SparseArray concurrently.
+     */
+    private List<NotebookPaperGenerator.TypedLine> typedLinesCopy() {
         List<NotebookPaperGenerator.TypedLine> lines = new ArrayList<>(mLineTexts.size());
         for (int i = 0; i < mLineTexts.size(); i++) {
             lines.add(new NotebookPaperGenerator.TypedLine(mLineTexts.keyAt(i),
@@ -281,7 +293,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void showLoading(boolean loading) {
         mProgressBar.setVisibility(loading ? View.VISIBLE : View.GONE);
-        mPaperImage.setVisibility(loading ? View.INVISIBLE : View.VISIBLE);
     }
 
     /**
@@ -322,8 +333,9 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Saves the generated paper to the MediaStore so it appears in the gallery.
-     * Writes through scoped storage using ContentValues (the non-deprecated
-     * replacement for insertImage), needs no storage permission on API 26+.
+     * Writes through scoped storage using ContentValues. On API 26-28 this may
+     * require WRITE_EXTERNAL_STORAGE; SecurityException is caught and reported
+     * as a save failure rather than crashing the background thread.
      */
     private void saveToGallery() {
         showLoading(true);
@@ -331,20 +343,24 @@ public class MainActivity extends AppCompatActivity {
             int w = widthPxForDpi(SAVE_DPI);
             int h = heightPxForDpi(SAVE_DPI);
             Bitmap highRes = NotebookPaperGenerator.generate(this, w, h,
-                    NotebookPaperGenerator.DEFAULT_BUCKLE_COUNT, typedLines());
+                    NotebookPaperGenerator.DEFAULT_BUCKLE_COUNT, typedLinesCopy());
             Uri uri = null;
-            ContentValues values = new ContentValues();
-            values.put(MediaStore.Images.Media.DISPLAY_NAME, "Notebook Paper.png");
-            values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
-            Uri imageUri = getContentResolver().insert(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-            if (imageUri != null) {
-                try (OutputStream os = getContentResolver().openOutputStream(imageUri)) {
-                    if (os != null) highRes.compress(Bitmap.CompressFormat.PNG, 100, os);
-                    uri = imageUri;
-                } catch (IOException ignored) {
-                    uri = null;
+            try {
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.Images.Media.DISPLAY_NAME, "Notebook Paper.png");
+                values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+                Uri imageUri = getContentResolver().insert(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+                if (imageUri != null) {
+                    try (OutputStream os = getContentResolver().openOutputStream(imageUri)) {
+                        if (os != null) highRes.compress(Bitmap.CompressFormat.PNG, 100, os);
+                        uri = imageUri;
+                    } catch (IOException ignored) {
+                        uri = null;
+                    }
                 }
+            } catch (SecurityException ignored) {
+                uri = null;
             }
             highRes.recycle();
             final Uri finalUri = uri;
@@ -368,7 +384,7 @@ public class MainActivity extends AppCompatActivity {
             int w = widthPxForDpi(SAVE_DPI);
             int h = heightPxForDpi(SAVE_DPI);
             Bitmap highRes = NotebookPaperGenerator.generate(this, w, h,
-                    NotebookPaperGenerator.DEFAULT_BUCKLE_COUNT, typedLines());
+                    NotebookPaperGenerator.DEFAULT_BUCKLE_COUNT, typedLinesCopy());
             File cacheFile = new File(getCacheDir(), "notebook-paper.png");
             Uri uri = null;
             try (FileOutputStream os = new FileOutputStream(cacheFile)) {
@@ -432,10 +448,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         mExecutor.shutdownNow();
-        if (mBlankPaper != null && !mBlankPaper.isRecycled()) {
-            mBlankPaper.recycle();
-            mBlankPaper = null;
-        }
         Bitmap current = mPaperImage.getPaperBitmap();
         if (current != null && !current.isRecycled() && current != mBlankPaper) {
             current.recycle();

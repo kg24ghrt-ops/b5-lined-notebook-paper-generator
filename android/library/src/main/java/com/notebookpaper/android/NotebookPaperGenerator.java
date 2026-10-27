@@ -341,14 +341,14 @@ public final class NotebookPaperGenerator {
         textPaint.setAntiAlias(true);
         textPaint.setSubpixelText(true);
         textPaint.setColor(Color.argb(220, 40, 40, 60));
-        textPaint.setTextSize(Math.max(12f, lineSpacingPx * 0.6f));
+        textPaint.setTextSize(Math.max(12f * sx, lineSpacingPx * 0.6f));
         textPaint.setTypeface(MyanmarSupport.resolveTypeface(context));
 
         Paint.FontMetrics fm = textPaint.getFontMetrics();
         int descent = (int) Math.ceil(fm.descent);
         Random rnd = new Random(42);
 
-        float rightPad = 6f;
+        float rightPad = 6f * sx;
 
         // Lay out top to bottom. Each entry starts on its own ruled line, but if
         // the entry above wrapped onto it, it is pushed down instead of drawing
@@ -377,7 +377,7 @@ public final class NotebookPaperGenerator {
                         ? Math.max(rightPad, (w - textPaint.measureText(segment)) / 2f)
                         : startX;
 
-                drawHandwrittenText(canvas, textPaint, segment, x, baselineY, rnd);
+                drawHandwrittenText(canvas, textPaint, segment, x, baselineY, rnd, sx, sy);
             }
             nextFreeLine = firstLine + wrapped.size();
         }
@@ -390,12 +390,23 @@ public final class NotebookPaperGenerator {
     }
 
     private static List<String> wrapLines(Paint paint, String text, float maxWidth) {
-        List<String> clusters = MyanmarSupport.graphemeClusters(text);
-        float[] widths = new float[clusters.size()];
-        for (int i = 0; i < widths.length; i++) {
-            widths[i] = paint.measureText(clusters.get(i));
+        List<String> lines = new ArrayList<>();
+        // Split on explicit newlines first so multi-line input is preserved,
+        // then wrap each segment at grapheme-cluster boundaries.
+        String[] segments = text.split("\n", -1);
+        for (String segment : segments) {
+            if (segment.isEmpty()) {
+                lines.add("");
+                continue;
+            }
+            List<String> clusters = MyanmarSupport.graphemeClusters(segment);
+            float[] widths = new float[clusters.size()];
+            for (int i = 0; i < widths.length; i++) {
+                widths[i] = paint.measureText(clusters.get(i));
+            }
+            lines.addAll(wrapClusters(clusters, widths, maxWidth));
         }
-        return wrapClusters(clusters, widths, maxWidth);
+        return lines;
     }
 
     /**
@@ -464,7 +475,7 @@ public final class NotebookPaperGenerator {
         return cur.indexOf('\u103A') < 0;
     }
 
-    private static void drawHandwrittenText(Canvas canvas, Paint textPaint, String text, float x, float baselineY, Random rnd) {
+    private static void drawHandwrittenText(Canvas canvas, Paint textPaint, String text, float x, float baselineY, Random rnd, float sx, float sy) {
         List<String> clusters = MyanmarSupport.graphemeClusters(text);
         float charX = x;
 
@@ -477,8 +488,8 @@ public final class NotebookPaperGenerator {
                 continue;
             }
 
-            float jitterX = (rnd.nextFloat() - 0.5f) * 0.3f;
-            float jitterY = (rnd.nextFloat() - 0.5f) * 0.2f;
+            float jitterX = (rnd.nextFloat() - 0.5f) * 0.3f * sx;
+            float jitterY = (rnd.nextFloat() - 0.5f) * 0.2f * sy;
             float rotation = (rnd.nextFloat() - 0.5f) * 0.005f;
 
             int alphaVariation = rnd.nextInt(30) - 15;
@@ -491,7 +502,7 @@ public final class NotebookPaperGenerator {
             canvas.drawText(cluster, 0, 0, textPaint);
             canvas.restore();
 
-            charX += textPaint.measureText(cluster) + (rnd.nextFloat() - 0.5f) * 0.5f;
+            charX += textPaint.measureText(cluster) + (rnd.nextFloat() - 0.5f) * 0.5f * sx;
         }
     }
 
