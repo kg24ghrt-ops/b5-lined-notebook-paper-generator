@@ -7,6 +7,7 @@
     <string name="action_regenerate">Regenerate</string>
     <string name="action_reset_zoom">Reset zoom</string>
     <string name="action_terms">Terms of Use</string>
+    <string name="edit_line_label">Edit text on this ruled line</string>
     <string name="terms_of_use">Terms of Use
 
 This app generates notebook paper images for personal use.

@@ -92,14 +92,14 @@ public class MainActivity extends AppCompatActivity {
         if (lineIndex < 0) return;
         mEditingLineIndex = lineIndex;
 
-        // Position the inline editor on the tapped ruled line in screen space.
+        // Position the inline editor centered on the tapped ruled line in screen
+        // space so the text sits on the ruled line.
         float[] screenPt = new float[2];
         float lineY = topMargin + lineIndex * spacing;
         mPaperImage.mapBitmapToScreen(0f, lineY, screenPt);
-        float textSize = mLineEdit.getTextSize();
-        mLineEdit.setY(screenPt[1] - textSize);
         mLineEdit.setText(TextUtils.isEmpty(mLineTexts.get(lineIndex)) ? "" : mLineTexts.get(lineIndex));
         mLineEdit.setSelection(mLineEdit.getText().length());
+        mLineEdit.setY(screenPt[1] - mLineEdit.getLineHeight() / 2f);
         mLineEdit.setVisibility(View.VISIBLE);
         mLineEdit.requestFocus();
 
