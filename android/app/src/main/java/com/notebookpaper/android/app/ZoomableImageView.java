@@ -30,6 +30,7 @@ public class ZoomableImageView extends ImageView {
     private OnDoubleTapListener mDoubleTapListener;
     private OnLineTapListener mLineTapListener;
     private OnTransformListener mTransformListener;
+    private OnTransformEndListener mTransformEndListener;
 
     private final Matrix mInvertMatrix = new Matrix();
 
@@ -69,6 +70,14 @@ public class ZoomableImageView extends ImageView {
      */
     public void setOnTransformListener(OnTransformListener listener) {
         mTransformListener = listener;
+    }
+
+    /**
+     * Set a listener invoked when the user finishes transforming (pinch or drag
+     * gesture ends). Callers can use this to reposition screen-space overlays.
+     */
+    public void setOnTransformEndListener(OnTransformEndListener listener) {
+        mTransformEndListener = listener;
     }
 
     /**
@@ -126,6 +135,9 @@ public class ZoomableImageView extends ImageView {
                     setImageMatrix(mMatrix);
                     break;
                 case MotionEvent.ACTION_UP:
+                    if (mTransformEndListener != null) {
+                        mTransformEndListener.onTransformEnded();
+                    }
                     break;
             }
         }
@@ -222,6 +234,14 @@ public class ZoomableImageView extends ImageView {
             setImageMatrix(mMatrix);
             return true;
         }
+
+        @Override
+        public boolean onScaleEnd(ScaleGestureDetector detector) {
+            if (mTransformEndListener != null) {
+                mTransformEndListener.onTransformEnded();
+            }
+            return true;
+        }
     }
 
     private class GestureListener extends GestureDetector.SimpleOnGestureListener {
@@ -260,5 +280,12 @@ public class ZoomableImageView extends ImageView {
      */
     public interface OnTransformListener {
         void onTransformStarted();
+    }
+
+    /**
+     * Callback invoked when the user finishes pinching or dragging the paper.
+     */
+    public interface OnTransformEndListener {
+        void onTransformEnded();
     }
 }

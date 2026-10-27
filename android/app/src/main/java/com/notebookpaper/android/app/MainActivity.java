@@ -12,21 +12,25 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
 import android.text.TextUtils;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 import com.notebookpaper.android.NotebookPaperGenerator;
 import android.util.SparseArray;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -108,28 +112,21 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        Button regenerate = findViewById(R.id.regenerateButton);
-        regenerate.setOnClickListener(v -> {
-            generatePaper();
-            Toast.makeText(this, "Paper regenerated", Toast.LENGTH_SHORT).show();
-        });
-
-        Button resetButton = findViewById(R.id.resetButton);
-        resetButton.setOnClickListener(v -> mPaperImage.zoomToCenter());
-
-        Button clearLineButton = findViewById(R.id.clearLineButton);
-        clearLineButton.setOnClickListener(v -> clearLine());
-
-        Button clearAllButton = findViewById(R.id.clearAllButton);
-        clearAllButton.setOnClickListener(v -> clearAll());
-
-        Button termsButton = findViewById(R.id.termsButton);
-        termsButton.setOnClickListener(v -> {
-            startActivity(new Intent(this, TermsOfUseActivity.class));
-        });
-
-        Button saveButton = findViewById(R.id.saveButton);
+                Button saveButton = findViewById(R.id.saveButton);
         saveButton.setOnClickListener(v -> saveToGallery());
+
+        Button shareButton = findViewById(R.id.shareButton);
+        shareButton.setOnClickListener(v -> sharePaper());
+
+        Button overflowButton = findViewById(R.id.overflowButton);
+        overflowButton.setOnClickListener(v -> showOverflowMenu(v));
+
+        mPaperImage.setOnTransformListener(() -> mLineHighlight.setVisibility(View.GONE));
+        mPaperImage.setOnTransformEndListener(() -> {
+            if (mEditingLineIndex >= 0) {
+                positionLineHighlight(mEditingLineIndex);
+            }
+        });
     }
 
     private void onPaperTapped(float bitmapX, float bitmapY) {
@@ -358,6 +355,78 @@ public class MainActivity extends AppCompatActivity {
                         Toast.LENGTH_SHORT).show();
             });
         });
+    }
+
+    /**
+     * Shares the current paper (high resolution) via a share sheet. The PNG is
+     * written to the app cache and exposed through FileProvider so other apps
+     * can receive it.
+     */
+    private void sharePaper() {
+        showLoading(true);
+        mExecutor.execute(() -> {
+            int w = widthPxForDpi(SAVE_DPI);
+            int h = heightPxForDpi(SAVE_DPI);
+            Bitmap highRes = NotebookPaperGenerator.generate(this, w, h,
+                    NotebookPaperGenerator.DEFAULT_BUCKLE_COUNT, typedLines());
+            File cacheFile = new File(getCacheDir(), "notebook-paper.png");
+            Uri uri = null;
+            try (FileOutputStream os = new FileOutputStream(cacheFile)) {
+                highRes.compress(Bitmap.CompressFormat.PNG, 100, os);
+                uri = FileProvider.getUriForFile(this,
+                        "com.notebookpaper.android.app.fileprovider", cacheFile);
+            } catch (IOException ignored) {
+                uri = null;
+            }
+            highRes.recycle();
+            final Uri finalUri = uri;
+            mMain.post(() -> {
+                showLoading(false);
+                if (finalUri == null) {
+                    Toast.makeText(this, R.string.msg_save_failed, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Intent share = new Intent(Intent.ACTION_SEND);
+                share.setType("image/png");
+                share.putExtra(Intent.EXTRA_STREAM, finalUri);
+                share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                startActivity(Intent.createChooser(share, "Share notebook paper"));
+            });
+        });
+    }
+
+    /**
+     * Shows an overflow popup with secondary actions.
+     */
+    private void showOverflowMenu(View anchor) {
+        PopupMenu menu = new PopupMenu(this, anchor);
+        menu.inflate(R.menu.overflow_menu);
+        menu.setOnMenuItemClickListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.action_clear_line) {
+                clearLine();
+                return true;
+            }
+            if (id == R.id.action_clear_all) {
+                clearAll();
+                return true;
+            }
+            if (id == R.id.action_regenerate) {
+                generatePaper();
+                Toast.makeText(this, "Paper regenerated", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+            if (id == R.id.action_reset_zoom) {
+                mPaperImage.zoomToCenter();
+                return true;
+            }
+            if (id == R.id.action_terms) {
+                startActivity(new Intent(this, TermsOfUseActivity.class));
+                return true;
+            }
+            return false;
+        });
+        menu.show();
     }
 
     @Override
