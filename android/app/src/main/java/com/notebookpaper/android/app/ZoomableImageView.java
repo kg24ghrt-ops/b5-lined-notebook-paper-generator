@@ -244,11 +244,10 @@ public class ZoomableImageView extends ImageView {
         }
 
         @Override
-        public boolean onScaleEnd(ScaleGestureDetector detector) {
+        public void onScaleEnd(ScaleGestureDetector detector) {
             if (mTransformEndListener != null) {
                 mTransformEndListener.onTransformEnded();
             }
-            return true;
         }
     }
 
