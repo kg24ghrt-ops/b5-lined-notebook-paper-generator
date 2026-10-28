@@ -540,7 +540,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    @Override
     protected void onPause() {
         super.onPause();
         mEditHandler.removeCallbacks(mDebounceRender);
