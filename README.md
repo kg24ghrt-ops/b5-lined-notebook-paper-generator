@@ -23,11 +23,43 @@ cd android && ./gradlew :app:assembleDebug
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
-CI builds the signed APK on every push to `main` via `.github/workflows/generate-paper.yml` (JDK 17, Android SDK 34).
+## Continuous integration
+
+CI compiles `:library` and `:app` on every push to `main` via
+`.github/workflows/compile-check.yml` (JDK 17, Android SDK 34, Gradle 8.5).
+A green Compile Check is required before changes are considered merged; CI
+proves compilation only, not device behavior.
+
+## Checking the build locally
+
+The project includes `tools/check_build.py`, which performs a real Gradle
+compilation of `:library` and `:app` inside a throwaway scratch folder (so it
+never touches your normal `~/.gradle` or Android SDK):
+
+```bash
+python tools/check_build.py
+```
+
+By default it compiles `:library:compileDebugJavaWithJavac` and
+`:app:compileDebugJavaWithJavac`. Add `--lint` to also run
+`:app:lintDebug`.
+
+The first run needs the Android SDK licenses accepted before Gradle can
+download platform pieces:
+
+```bash
+python tools/check_build.py --accept-licenses
+```
+
+This writes the standard SDK license acceptance files into the scratch folder
+(default `~/.cache/notebookpaper-build`). The scratch folder can be removed at
+any time with `python tools/check_build.py --clean`.
+
+See `python tools/check_build.py --help` for all options.
 
 ## Usage
 - Tap any ruled line to type directly on it (multi-line supported).
-- Use **Clear line** / **Clear all** from the bottom bar.
+- Use **Clear line** / **Clear all** from the overflow menu.
 - Pinch to zoom, drag to pan, double-tap to toggle fit/full size.
 - Tap **Save to Gallery** to export the current page as a high-resolution PNG.
 

@@ -549,7 +549,7 @@ public class MainActivity extends AppCompatActivity {
                 share.setType("image/png");
                 share.putExtra(Intent.EXTRA_STREAM, finalUri);
                 share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                startActivity(Intent.createChooser(share, "Share notebook paper"));
+                startActivity(Intent.createChooser(share, getString(R.string.share_chooser_title)));
             });
         });
     }
@@ -572,7 +572,7 @@ public class MainActivity extends AppCompatActivity {
             }
             if (id == R.id.action_regenerate) {
                 generatePaper();
-                Toast.makeText(this, "Paper regenerated", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.msg_regenerated), Toast.LENGTH_SHORT).show();
                 return true;
             }
             if (id == R.id.action_reset_zoom) {

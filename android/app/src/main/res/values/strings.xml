@@ -4,10 +4,15 @@
     <string name="action_save">Save to Gallery</string>
     <string name="msg_saved">Saved to gallery</string>
     <string name="msg_save_failed">Failed to save to gallery</string>
+    <string name="msg_regenerated">Paper regenerated</string>
     <string name="action_regenerate">Regenerate</string>
     <string name="action_reset_zoom">Reset zoom</string>
     <string name="action_terms">Terms of Use</string>
     <string name="edit_line_label">Edit text on this ruled line</string>
+    <string name="edit_hint">Type on the line</string>
+    <string name="paper_content_description">Generated notebook paper</string>
+    <string name="overflow_content_description">More options</string>
+    <string name="share_chooser_title">Share notebook paper</string>
     <string name="action_clear_line">Clear line</string>
     <string name="action_clear_all">Clear all</string>
     <string name="action_share">Share</string>

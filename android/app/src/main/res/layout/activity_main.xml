@@ -32,7 +32,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:scaleType="matrix"
-            android:contentDescription="Generated notebook paper" />
+            android:contentDescription="@string/paper_content_description" />
 
         <EditText
             android:id="@+id/lineEdit"
@@ -45,7 +45,7 @@
             android:maxLines="4"
             android:textColor="@color/color_on_surface"
             android:textColorHint="@color/color_muted_foreground"
-            android:hint="Type on the line"
+            android:hint="@string/edit_hint"
             android:contentDescription="@string/edit_line_label"
             android:inputType="textMultiLine"
             android:imeOptions="flagNoExtractUi" />
@@ -87,7 +87,8 @@
             style="?attr/buttonBarButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="…" />
+            android:text="…"
+            android:contentDescription="@string/overflow_content_description" />
 
     </LinearLayout>
 

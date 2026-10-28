@@ -45,7 +45,7 @@ jobs:
         run: ./gradlew :library:compileDebugJavaWithJavac :app:compileDebugJavaWithJavac --console=plain --stacktrace
 
       - name: Lint Debug
-        if: ${{ inputs.lint == 'true' }}
+        if: ${{ inputs.lint }}
         working-directory: android
         run: ./gradlew :app:lintDebug --console=plain --stacktrace
 
