@@ -540,7 +540,26 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mEditHandler.removeCallbacks(mDebounceRender);
+        saveNotes();
+        stopCursorBlink();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (mEditingLineIndex >= 0) {
+            startCursorBlink();
+        }
+    }
+
+    @Override
     protected void onDestroy() {
+        mEditHandler.removeCallbacksAndMessages(null);
+        mCursorHandler.removeCallbacksAndMessages(null);
         mExecutor.shutdownNow();
         Bitmap current = mPaperImage.getPaperBitmap();
         if (current != null && !current.isRecycled() && current != mBlankPaper) {
