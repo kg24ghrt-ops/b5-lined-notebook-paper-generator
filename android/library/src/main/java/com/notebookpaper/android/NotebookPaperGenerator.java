@@ -408,6 +408,52 @@ public final class NotebookPaperGenerator {
         }
     }
 
+    public static final class RenderedSpan {
+        public final int lineIndex;
+        public final int firstLine;
+        public final int lineCount;
+
+        public RenderedSpan(int lineIndex, int firstLine, int lineCount) {
+            this.lineIndex = lineIndex;
+            this.firstLine = firstLine;
+            this.lineCount = lineCount;
+        }
+    }
+
+    public static List<RenderedSpan> renderedSpans(Context context, List<TypedLine> typedLines,
+            int w, int h, int topMarginPx, int lineSpacingPx, float sx, float sy) {
+        List<RenderedSpan> spans = new ArrayList<>();
+        if (typedLines == null || typedLines.isEmpty()) return spans;
+
+        Paint textPaint = new Paint();
+        textPaint.setAntiAlias(true);
+        textPaint.setSubpixelText(true);
+        textPaint.setColor(Color.argb(220, 40, 40, 60));
+        textPaint.setTextSize(lineSpacingPx * 0.6f);
+        textPaint.setTypeface(MyanmarSupport.resolveTypeface(context));
+
+        float rightPad = 6f * sx;
+
+        List<TypedLine> ordered = new ArrayList<>(typedLines);
+        Collections.sort(ordered, (l1, l2) -> Integer.compare(l1.lineIndex, l2.lineIndex));
+        int nextFreeLine = 0;
+
+        for (TypedLine tl : ordered) {
+            if (tl.text == null || tl.text.isEmpty()) continue;
+
+            float startX = textStartX(tl.position, w, sx);
+            float available = (tl.position == HorizontalPosition.SPAN_FULL)
+                    ? w - 2f * rightPad
+                    : w - startX - rightPad;
+
+            List<String> wrapped = wrapLines(textPaint, tl.text, Math.max(available, 1f));
+            int firstLine = Math.max(tl.lineIndex, nextFreeLine);
+            spans.add(new RenderedSpan(tl.lineIndex, firstLine, wrapped.size()));
+            nextFreeLine = firstLine + wrapped.size();
+        }
+        return spans;
+    }
+
     /** Left edge of text for non-centered positions. */
     private static float textStartX(HorizontalPosition position, int w, float sx) {
         if (position == HorizontalPosition.LEFT_OF_MARGIN) return 3f * sx;

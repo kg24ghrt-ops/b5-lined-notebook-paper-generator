@@ -178,17 +178,22 @@ public class MainActivity extends AppCompatActivity {
         if (bitmapY < topMargin) return;
         int lineIndex = Math.round((bitmapY - topMargin) / (float) spacing);
         if (lineIndex < 0) return;
-        // If the tapped line is a wrapped continuation with no text of its own,
-        // edit the nearest paragraph above it instead.
-        if (mLineTexts.get(lineIndex) == null) {
-            int para = lineIndex;
-            while (para > 0 && mLineTexts.get(para) == null) para--;
-            if (mLineTexts.get(para) != null) lineIndex = para;
+        int w = paper != null ? paper.getWidth() : Math.max(1, mPaperImage.getWidth());
+        float sx = w / (float) NotebookPaperGenerator.B5_WIDTH_MM;
+        List<NotebookPaperGenerator.TypedLine> lines = typedLinesCopy();
+        List<NotebookPaperGenerator.RenderedSpan> spans = NotebookPaperGenerator.renderedSpans(
+                this, lines, w, bmHeight, topMargin, spacing, sx, 1f);
+        int tappedLine = lineIndex;
+        for (NotebookPaperGenerator.RenderedSpan span : spans) {
+            if (tappedLine >= span.firstLine && tappedLine < span.firstLine + span.lineCount) {
+                tappedLine = span.lineIndex;
+                break;
+            }
         }
+        lineIndex = tappedLine;
 
         NotebookPaperGenerator.HorizontalPosition position = mLinePositions.get(lineIndex);
         if (position == null && paper != null) {
-            float sx = paper.getWidth() / (float) NotebookPaperGenerator.B5_WIDTH_MM;
             float marginLineX = NotebookPaperGenerator.LEFT_MARGIN_MM * sx;
             position = bitmapX < marginLineX
                     ? NotebookPaperGenerator.HorizontalPosition.LEFT_OF_MARGIN
