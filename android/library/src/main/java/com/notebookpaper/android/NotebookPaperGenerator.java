@@ -377,7 +377,8 @@ public final class NotebookPaperGenerator {
         List<TypedLine> ordered = new ArrayList<>(typedLines);
         Collections.sort(ordered, (l1, l2) -> Integer.compare(l1.lineIndex, l2.lineIndex));
         int nextFreeLine = 0;
-        boolean cursorDrawn = false;
+        int cursorSegment = -1;
+        int cursorOffsetInSegment = 0;
 
         for (TypedLine tl : ordered) {
             if (tl.text == null || tl.text.isEmpty()) continue;
@@ -391,6 +392,12 @@ public final class NotebookPaperGenerator {
             float available = (tl.position == HorizontalPosition.SPAN_FULL)
                     ? w - 2f * rightPad
                     : w - startX - rightPad;
+
+            if (cursorPaint != null && tl.lineIndex == cursorLineIndex && cursorOffset >= 0) {
+                int[] pos = cursorPosition(textPaint, tl.text, available, cursorOffset);
+                cursorSegment = pos[0];
+                cursorOffsetInSegment = pos[1];
+            }
 
             List<String> wrapped = wrapLines(textPaint, tl.text, Math.max(available, 1f));
             int firstLine = Math.max(tl.lineIndex, nextFreeLine);
@@ -406,13 +413,14 @@ public final class NotebookPaperGenerator {
 
                 drawHandwrittenText(canvas, textPaint, segment, x, baselineY, rnd, sx, sy);
 
-                if (!cursorDrawn && cursorPaint != null && tl.lineIndex == cursorLineIndex && s == 0) {
-                    int end = Math.max(0, Math.min(cursorOffset, segment.length()));
+                if (cursorPaint != null && tl.lineIndex == cursorLineIndex && cursorSegment >= 0
+                        && s == cursorSegment) {
+                    int end = Math.max(0, Math.min(cursorOffsetInSegment, segment.length()));
                     float cursorX = x + textPaint.measureText(segment, 0, end);
                     float cursorWidth = 2f * sx;
                     canvas.drawRect(cursorX, baselineY + ascent, cursorX + cursorWidth,
                             baselineY + descent, cursorPaint);
-                    cursorDrawn = true;
+                    cursorSegment = -1;
                 }
             }
             nextFreeLine = firstLine + wrapped.size();
@@ -468,6 +476,47 @@ public final class NotebookPaperGenerator {
             nextFreeLine = firstLine + wrapped.size();
         }
         return spans;
+    }
+
+    /**
+     * Computes the wrapped visual segment and offset within it for a codepoint
+     * cursor position, using the same wrapping as {@link #wrapLines}. Returns
+     * {-1, -1} when the cursor cannot be placed. Newlines start new visual
+     * lines, so the cursor lands on the correct wrapped line after wrapping and
+     * after explicit newlines.
+     */
+    static int[] cursorPosition(Paint textPaint, String text, float available, int cursorOffset) {
+        if (text == null || text.isEmpty() || cursorOffset < 0) return new int[] { -1, -1 };
+        float maxWidth = Math.max(available, 1f);
+        String[] parts = text.split("\n", -1);
+        int remaining = cursorOffset;
+        int visualLine = 0;
+        int lastSegmentLine = -1;
+        int lastSegmentOffset = 0;
+        for (int p = 0; p < parts.length; p++) {
+            String part = parts[p];
+            List<String> wrapped = wrapLines(textPaint, part, maxWidth);
+            if (wrapped.isEmpty()) wrapped.add("");
+            int partLen = part.length();
+            if (remaining <= partLen) {
+                int cum = 0;
+                for (int s = 0; s < wrapped.size(); s++) {
+                    String seg = wrapped.get(s);
+                    int seglen = seg.length();
+                    if (remaining <= cum + seglen) {
+                        return new int[] { visualLine + s, remaining - cum };
+                    }
+                    cum += seglen;
+                }
+                String lastSeg = wrapped.get(wrapped.size() - 1);
+                return new int[] { visualLine + wrapped.size() - 1, lastSeg.length() };
+            }
+            remaining -= partLen + 1;
+            visualLine += wrapped.size();
+            lastSegmentLine = visualLine - 1;
+            lastSegmentOffset = wrapped.get(wrapped.size() - 1).length();
+        }
+        return new int[] { lastSegmentLine, lastSegmentOffset };
     }
 
     /** Left edge of text for non-centered positions. */
