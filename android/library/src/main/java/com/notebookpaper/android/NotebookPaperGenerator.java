@@ -60,15 +60,21 @@ public final class NotebookPaperGenerator {
         public final int lineIndex;
         public final String text;
         public final HorizontalPosition position;
+        public final float startXMm;
 
         public TypedLine(int lineIndex, String text) {
-            this(lineIndex, text, HorizontalPosition.RIGHT_OF_MARGIN);
+            this(lineIndex, text, HorizontalPosition.RIGHT_OF_MARGIN, Float.NaN);
         }
 
         public TypedLine(int lineIndex, String text, HorizontalPosition position) {
+            this(lineIndex, text, position, Float.NaN);
+        }
+
+        public TypedLine(int lineIndex, String text, HorizontalPosition position, float startXMm) {
             this.lineIndex = lineIndex;
             this.text = text;
             this.position = position;
+            this.startXMm = startXMm;
         }
 
         public static TypedLine leftOfMargin(int lineIndex, String text) {
@@ -376,7 +382,12 @@ public final class NotebookPaperGenerator {
         for (TypedLine tl : ordered) {
             if (tl.text == null || tl.text.isEmpty()) continue;
 
-            float startX = textStartX(tl.position, w, sx);
+            float startX;
+            if (!Float.isNaN(tl.startXMm)) {
+                startX = Math.max(3f * sx, Math.min(tl.startXMm * sx, w));
+            } else {
+                startX = textStartX(tl.position, w, sx);
+            }
             float available = (tl.position == HorizontalPosition.SPAN_FULL)
                     ? w - 2f * rightPad
                     : w - startX - rightPad;
@@ -441,7 +452,12 @@ public final class NotebookPaperGenerator {
         for (TypedLine tl : ordered) {
             if (tl.text == null || tl.text.isEmpty()) continue;
 
-            float startX = textStartX(tl.position, w, sx);
+            float startX;
+            if (!Float.isNaN(tl.startXMm)) {
+                startX = Math.max(3f * sx, Math.min(tl.startXMm * sx, w));
+            } else {
+                startX = textStartX(tl.position, w, sx);
+            }
             float available = (tl.position == HorizontalPosition.SPAN_FULL)
                     ? w - 2f * rightPad
                     : w - startX - rightPad;

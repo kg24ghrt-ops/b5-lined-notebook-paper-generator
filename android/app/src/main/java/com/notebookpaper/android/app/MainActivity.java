@@ -58,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
     private final SparseArray<String> mLineTexts = new SparseArray<>();
     private final SparseArray<NotebookPaperGenerator.HorizontalPosition> mLinePositions =
             new SparseArray<>();
+    private final SparseArray<Float> mLineTapXmm = new SparseArray<>();
     private int mEditingLineIndex = -1;
 
     private static final int EDIT_DEBOUNCE_MS = 200;
@@ -199,6 +200,7 @@ public class MainActivity extends AppCompatActivity {
                     ? NotebookPaperGenerator.HorizontalPosition.LEFT_OF_MARGIN
                     : NotebookPaperGenerator.HorizontalPosition.RIGHT_OF_MARGIN;
             mLinePositions.put(lineIndex, position);
+            mLineTapXmm.put(lineIndex, bitmapX / sx);
         }
         mEditingLineIndex = lineIndex;
 
@@ -236,6 +238,7 @@ public class MainActivity extends AppCompatActivity {
         if (mEditingLineIndex >= 0) {
             mLineTexts.remove(mEditingLineIndex);
             mLinePositions.remove(mEditingLineIndex);
+            mLineTapXmm.remove(mEditingLineIndex);
             mLineEdit.setText("");
             commitEdit();
             scheduleDebouncedRender();
@@ -245,6 +248,7 @@ public class MainActivity extends AppCompatActivity {
     private void clearAll() {
         mLineTexts.clear();
         mLinePositions.clear();
+        mLineTapXmm.clear();
         mEditingLineIndex = -1;
         mLineEdit.setText("");
         stopCursorBlink();
@@ -343,7 +347,8 @@ public class MainActivity extends AppCompatActivity {
             lines.add(new NotebookPaperGenerator.TypedLine(index,
                     mLineTexts.valueAt(i),
                     mLinePositions.get(index,
-                            NotebookPaperGenerator.HorizontalPosition.RIGHT_OF_MARGIN)));
+                            NotebookPaperGenerator.HorizontalPosition.RIGHT_OF_MARGIN),
+                    mLineTapXmm.get(index, Float.NaN)));
         }
         return lines;
     }
