@@ -519,6 +519,63 @@ public final class NotebookPaperGenerator {
         return new int[] { lastSegmentLine, lastSegmentOffset };
     }
 
+    public static void drawTextCursor(Canvas canvas, Paint textPaint, Context context, int w, int h,
+            int topMarginPx, int lineSpacingPx, float sx, float sy,
+            List<TypedLine> lines, int cursorLineIndex, int cursorOffset) {
+        if (lines == null || lines.isEmpty() || cursorLineIndex < 0 || cursorOffset < 0) return;
+        textPaint.setAntiAlias(true);
+        textPaint.setSubpixelText(true);
+        textPaint.setColor(Color.argb(220, 40, 40, 60));
+        textPaint.setTextSize(lineSpacingPx * 0.6f);
+        textPaint.setTypeface(MyanmarSupport.resolveTypeface(context));
+        Paint.FontMetrics fm = textPaint.getFontMetrics();
+        float ascent = fm.ascent;
+        int descent = (int) Math.ceil(fm.descent);
+        float rightPad = 6f * sx;
+        Paint cursorPaint = new Paint();
+        cursorPaint.setColor(Color.argb(255, 30, 130, 210));
+
+        List<TypedLine> ordered = new ArrayList<>(lines);
+        Collections.sort(ordered, (l1, l2) -> Integer.compare(l1.lineIndex, l2.lineIndex));
+        int nextFreeLine = 0;
+
+        for (TypedLine tl : ordered) {
+            if (tl.text == null || tl.text.isEmpty()) continue;
+
+            float startX;
+            if (!Float.isNaN(tl.startXMm)) {
+                startX = Math.max(3f * sx, Math.min(tl.startXMm * sx, w));
+            } else {
+                startX = textStartX(tl.position, w, sx);
+            }
+            float available = (tl.position == HorizontalPosition.SPAN_FULL)
+                    ? w - 2f * rightPad
+                    : w - startX - rightPad;
+
+            List<String> wrapped = wrapLines(textPaint, tl.text, Math.max(available, 1f));
+            int firstLine = Math.max(tl.lineIndex, nextFreeLine);
+
+            if (tl.lineIndex == cursorLineIndex) {
+                int[] pos = cursorPosition(textPaint, tl.text, available, cursorOffset);
+                if (pos[0] >= 0 && pos[0] < wrapped.size()) {
+                    String segment = wrapped.get(pos[0]);
+                    float lineY = topMarginPx + (firstLine + pos[0]) * lineSpacingPx;
+                    float baselineY = lineY - descent * 0.6f;
+                    float x = (tl.position == HorizontalPosition.SPAN_FULL)
+                            ? Math.max(rightPad, (w - textPaint.measureText(segment)) / 2f)
+                            : startX;
+                    int end = Math.max(0, Math.min(cursorOffset, segment.length()));
+                    float cursorX = x + textPaint.measureText(segment, 0, end);
+                    float cursorWidth = 2f * sx;
+                    canvas.drawRect(cursorX, baselineY + ascent, cursorX + cursorWidth,
+                            baselineY + descent, cursorPaint);
+                }
+                return;
+            }
+            nextFreeLine = firstLine + wrapped.size();
+        }
+    }
+
     /** Left edge of text for non-centered positions. */
     private static float textStartX(HorizontalPosition position, int w, float sx) {
         if (position == HorizontalPosition.LEFT_OF_MARGIN) return 3f * sx;
