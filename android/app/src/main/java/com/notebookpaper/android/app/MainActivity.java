@@ -371,11 +371,31 @@ public class MainActivity extends AppCompatActivity {
         try (BufferedReader r = new BufferedReader(new FileReader(file))) {
             String line;
             while ((line = r.readLine()) != null) {
-                int tab = line.indexOf('\t');
-                if (tab < 0) continue;
-                int index = Integer.parseInt(line.substring(0, tab));
-                String text = line.substring(tab + 1).replace("\u0001", "\n");
+                int firstTab = line.indexOf('\t');
+                if (firstTab < 0) continue;
+                int secondTab = line.indexOf('\t', firstTab + 1);
+                int index = Integer.parseInt(line.substring(0, firstTab));
+                String text;
+                if (secondTab < 0) {
+                    text = line.substring(firstTab + 1).replace("\u0001", "\n");
+                } else {
+                    text = line.substring(firstTab + 1, secondTab).replace("\u0001", "\n");
+                }
+                NotebookPaperGenerator.HorizontalPosition position =
+                        NotebookPaperGenerator.HorizontalPosition.RIGHT_OF_MARGIN;
+                if (secondTab >= 0 && secondTab + 1 < line.length()) {
+                    try {
+                        int ordinal = Integer.parseInt(line.substring(secondTab + 1));
+                        NotebookPaperGenerator.HorizontalPosition[] values =
+                                NotebookPaperGenerator.HorizontalPosition.values();
+                        if (ordinal >= 0 && ordinal < values.length) {
+                            position = values[ordinal];
+                        }
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
                 mLineTexts.put(index, text);
+                mLinePositions.put(index, position);
             }
         } catch (IOException | NumberFormatException ignored) {
             // Corrupt or missing notes file: start fresh.
@@ -389,7 +409,11 @@ public class MainActivity extends AppCompatActivity {
                 int index = mLineTexts.keyAt(i);
                 String text = mLineTexts.valueAt(i);
                 if (text == null) continue;
-                w.println(index + "\t" + text.replace("\n", "\u0001"));
+                NotebookPaperGenerator.HorizontalPosition position =
+                        mLinePositions.get(index,
+                                NotebookPaperGenerator.HorizontalPosition.RIGHT_OF_MARGIN);
+                w.println(index + "\t" + text.replace("\n", "\u0001") + "\t"
+                        + position.ordinal());
             }
         } catch (IOException ignored) {
             // Best-effort persistence; notes are non-critical.
